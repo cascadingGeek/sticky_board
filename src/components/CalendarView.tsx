@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Sparkles, AlertCircle, CheckCircle, Info } from 'lucide-react';
-import { motion } from 'motion/react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { toDateStr } from '../lib/dates';
 
 export const CalendarView: React.FC = () => {
-  const { todos, currentDateStr, setCurrentDateStr, setActiveTab } = useStickyBoard();
-  const [viewDate, setViewDate] = useState<Date>(new Date(currentDateStr));
+  const { allTodos, currentDateStr, setCurrentDateStr, setActiveTab } = useStickyBoard();
+  const [viewDate, setViewDate] = useState<Date>(new Date(`${currentDateStr}T00:00:00`));
 
-  const years = [2026, 2027];
   const months = [
     "January", "February", "March", "April", "May", "June", 
     "July", "August", "September", "October", "November", "December"
@@ -35,8 +34,7 @@ export const CalendarView: React.FC = () => {
 
   const selectDate = (day: number) => {
     const selected = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
-    const dateStr = selected.toISOString().split('T')[0];
-    setCurrentDateStr(dateStr);
+    setCurrentDateStr(toDateStr(selected));
     setActiveTab('board'); // Jump back to the board view
   };
 
@@ -49,37 +47,19 @@ export const CalendarView: React.FC = () => {
   const pads = Array.from({ length: firstDay });
   const daysArray = Array.from({ length: totalDays }, (_, i) => i + 1);
 
-  // Mock historic data density for heatmaps (if not currently present in db)
-  // Maps date strings to mock task statistics for visual interest
+  // Real task density per day, computed from board data
   const getDayStats = (dayNum: number) => {
-    const formattedDay = String(dayNum).padStart(2, '0');
-    const formattedMonth = String(monthIdx + 1).padStart(2, '0');
-    const targetDateStr = `${year}-${formattedMonth}-${formattedDay}`;
-
-    // If viewing the current day, pull from actual state
-    if (targetDateStr === currentDateStr) {
-      const completed = todos.filter(t => t.isCompleted).length;
-      const pending = todos.filter(t => !t.isCompleted).length;
-      return { completed, pending, total: completed + pending };
-    }
-
-    // Otherwise, generate realistic mock densities based on hash of date
-    let hash = 0;
-    for (let i = 0; i < targetDateStr.length; i++) {
-      hash = targetDateStr.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const total = Math.abs(hash % 5);
-    const completed = total > 0 ? Math.abs(hash % (total + 1)) : 0;
-    const pending = total - completed;
-
-    return { completed, pending, total };
+    const targetDateStr = toDateStr(new Date(year, monthIdx, dayNum));
+    const dayTodos = allTodos.filter(t => t.dateStr === targetDateStr);
+    const completed = dayTodos.filter(t => t.isCompleted).length;
+    return { completed, pending: dayTodos.length - completed, total: dayTodos.length };
   };
 
   return (
     <div className="min-h-screen px-4 py-6 md:pl-72 md:pr-8 md:py-8 pb-24 md:pb-8">
       {/* Header */}
       <div className="border-b border-white/5 pb-6">
-        <span className="text-[10px] uppercase font-mono tracking-wider text-indigo-400 font-bold">Time Machine</span>
+        <span className="text-[10px] uppercase font-mono tracking-wider text-accent-soft font-bold">Time Machine</span>
         <h1 className="font-display text-3xl font-extrabold text-white tracking-tight">Calendar Workspace</h1>
       </div>
 
@@ -89,7 +69,7 @@ export const CalendarView: React.FC = () => {
           {/* Calendar Header Navigation */}
           <div className="flex items-center justify-between pb-6 border-b border-white/5">
             <div className="flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5 text-indigo-400" />
+              <CalendarIcon className="h-5 w-5 text-accent-soft" />
               <h2 className="font-display text-lg font-bold text-white">
                 {months[monthIdx]} {year}
               </h2>
@@ -142,7 +122,7 @@ export const CalendarView: React.FC = () => {
                 } else if (stats.completed > 0) {
                   cellColor = "bg-amber-950/20 text-amber-400 border-amber-500/20 hover:bg-amber-950/30"; // Orange: busy
                 } else {
-                  cellColor = "bg-indigo-950/20 text-indigo-400 border-indigo-500/20 hover:bg-indigo-950/30"; // Indigo: missed/all pending
+                  cellColor = "bg-accent/10 text-accent-soft border-accent/20 hover:bg-accent/15"; // Indigo: missed/all pending
                 }
               }
 
@@ -150,8 +130,8 @@ export const CalendarView: React.FC = () => {
                 <button
                   key={`day-${day}`}
                   onClick={() => selectDate(day)}
-                  className={`group relative h-20 rounded-xl border p-2 flex flex-col justify-between items-start text-left transition-all hover:scale-103 hover:border-indigo-500 ${cellColor} ${
-                    isToday ? 'ring-2 ring-indigo-500 border-indigo-500' : ''
+                  className={`group relative h-20 rounded-xl border p-2 flex flex-col justify-between items-start text-left transition-all hover:scale-103 hover:border-accent ${cellColor} ${
+                    isToday ? 'ring-2 ring-accent border-accent' : ''
                   }`}
                 >
                   <span className="font-display font-bold text-xs text-inherit">{day}</span>
@@ -161,7 +141,7 @@ export const CalendarView: React.FC = () => {
                     <div className="flex flex-col gap-1 w-full">
                       <div className="h-1 rounded-full w-full bg-zinc-800 overflow-hidden flex">
                         <div className="h-full bg-emerald-500" style={{ width: `${(stats.completed / stats.total) * 100}%` }} />
-                        <div className="h-full bg-indigo-500" style={{ width: `${(stats.pending / stats.total) * 100}%` }} />
+                        <div className="h-full bg-accent" style={{ width: `${(stats.pending / stats.total) * 100}%` }} />
                       </div>
                       
                       {/* Detailed task text tags (only visible on hover/desktops) */}
@@ -203,8 +183,8 @@ export const CalendarView: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-3.5">
-                <div className="h-5 w-5 rounded-lg bg-indigo-950/20 border border-indigo-500/20 flex items-center justify-center">
-                  <AlertCircle className="h-3.5 w-3.5 text-indigo-400" />
+                <div className="h-5 w-5 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
+                  <AlertCircle className="h-3.5 w-3.5 text-accent-soft" />
                 </div>
                 <div>
                   <span className="block text-xs font-semibold text-white">Overdue or Missed</span>
@@ -214,8 +194,8 @@ export const CalendarView: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/5 bg-gradient-to-tr from-indigo-950/10 to-zinc-950 p-5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 mb-3">
+          <div className="rounded-2xl border border-white/5 bg-gradient-to-tr from-accent/5 to-zinc-950 p-5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10 text-accent-soft mb-3">
               <Info className="h-4 w-4" />
             </div>
             <h4 className="font-display text-xs font-bold text-white uppercase tracking-wider">Mindful Time Blocking</h4>

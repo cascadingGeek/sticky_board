@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
 import { Todo, Priority } from '../types';
-import { 
-  Sparkles, Plus, ChevronLeft, ChevronRight, Search, Filter, 
-  Trash2, Copy, Pin, Star, Check, Edit2, Play, CheckCircle2, 
-  HelpCircle, Sparkle, Loader2, ListChecks, Calendar, Volume2, VolumeX, Eye, LayoutGrid
+import {
+  Sparkles, Plus, ChevronLeft, ChevronRight, Search,
+  Trash2, Copy, Pin, Star, Check,
+  Sparkle, Loader2, ListChecks, LayoutGrid
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { offsetDateStr, todayStr } from '../lib/dates';
 
 export const DailyBoard: React.FC = () => {
-  const { 
-    todos, currentDateStr, setCurrentDateStr, addTodo, updateTodo, 
-    deleteTodo, duplicateTodo, parseAIQuery, getAIBriefing, user, reorderTodos 
+  const {
+    todos, currentDateStr, setCurrentDateStr, addTodo, updateTodo,
+    deleteTodo, duplicateTodo, parseAIQuery, getAIBriefing, reorderTodos
   } = useStickyBoard();
 
   // Container reference for boundary dragging
@@ -40,7 +41,6 @@ export const DailyBoard: React.FC = () => {
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
-  const [activePriority, setActivePriority] = useState<string>('all');
 
   // AI Briefing State
   const [aiBriefing, setAiBriefing] = useState<string | null>(null);
@@ -70,9 +70,6 @@ export const DailyBoard: React.FC = () => {
   // Confetti particles for complete animation
   const [confetti, setConfetti] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
 
-  // Sound enable state locally
-  const [soundOn, setSoundOn] = useState(true);
-
   // Pre-load briefing on day change
   useEffect(() => {
     setAiBriefing(null);
@@ -94,9 +91,7 @@ export const DailyBoard: React.FC = () => {
       // Calculate due date based on parsed date offset
       let targetDateStr = currentDateStr;
       if (parsed.dateOffset && parsed.dateOffset > 0) {
-        const offsetDate = new Date();
-        offsetDate.setDate(offsetDate.getDate() + parsed.dateOffset);
-        targetDateStr = offsetDate.toISOString().split('T')[0];
+        targetDateStr = offsetDateStr(todayStr(), parsed.dateOffset);
       }
 
       await addTodo({
@@ -106,6 +101,7 @@ export const DailyBoard: React.FC = () => {
         category: parsed.category,
         dueTime: parsed.dueTime,
         noteColor: getColorFromPriority(parsed.priority),
+        dateStr: targetDateStr,
         subtasks: []
       });
       setAiInput('');
@@ -130,15 +126,13 @@ export const DailyBoard: React.FC = () => {
     setIsBriefingLoading(false);
   };
 
-  // Navigation: offset day
+  // Navigation: offset day (local-timezone safe)
   const offsetDay = (days: number) => {
-    const current = new Date(currentDateStr);
-    current.setDate(current.getDate() + days);
-    setCurrentDateStr(current.toISOString().split('T')[0]);
+    setCurrentDateStr(offsetDateStr(currentDateStr, days));
   };
 
   const setToday = () => {
-    setCurrentDateStr(new Date().toISOString().split('T')[0]);
+    setCurrentDateStr(todayStr());
   };
 
   // Add subtask inside Creation Form
@@ -218,9 +212,8 @@ export const DailyBoard: React.FC = () => {
     setEditingTodoId(null);
   };
 
-  // Categories & Priorities presets
+  // Category filter presets
   const categories = ['all', 'Personal', 'Work', 'Health', 'Finance', 'Urgent'];
-  const priorities = ['all', 'low', 'medium', 'high', 'critical'];
 
   // Hashing to generate slightly different deterministic rotations per note id
   const getRotationAngle = (id: string) => {
@@ -236,12 +229,11 @@ export const DailyBoard: React.FC = () => {
     const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           (t.description && t.description.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesCategory = activeCategory === 'all' || t.category === activeCategory;
-    const matchesPriority = activePriority === 'all' || t.priority === activePriority;
-    return matchesSearch && matchesCategory && matchesPriority;
+    return matchesSearch && matchesCategory;
   });
 
   // Drag-and-drop hit detection & reordering
-  const handleDrag = (id: string, event: any, info: any) => {
+  const handleDrag = (id: string, info: any) => {
     const element = document.elementFromPoint(info.point.x, info.point.y);
     if (!element) return;
 
@@ -301,7 +293,7 @@ export const DailyBoard: React.FC = () => {
   };
 
   // Drag-and-drop end handler for freeform boards
-  const handleFreeformDragEnd = (todo: Todo, index: number, event: any, info: any) => {
+  const handleFreeformDragEnd = (todo: Todo, event: any) => {
     setDraggedId(null);
     if (!containerRef.current) return;
     
@@ -357,7 +349,7 @@ export const DailyBoard: React.FC = () => {
       {/* HEADER SECTION */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/5 pb-6">
         <div>
-          <span className="text-[10px] uppercase font-mono tracking-wider text-indigo-400">Workspace Canvas</span>
+          <span className="text-[10px] uppercase font-mono tracking-wider text-accent-soft">Workspace Canvas</span>
           <h1 className="font-display text-3xl font-extrabold text-white tracking-tight">Today's Board</h1>
         </div>
 
@@ -371,7 +363,7 @@ export const DailyBoard: React.FC = () => {
           </button>
 
           <span className="font-display text-xs font-semibold text-zinc-200 px-3">
-            {new Date(currentDateStr).toLocaleDateString('en-US', {
+            {new Date(`${currentDateStr}T00:00:00`).toLocaleDateString('en-US', {
               weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
             })}
           </span>
@@ -387,7 +379,7 @@ export const DailyBoard: React.FC = () => {
 
           <button 
             onClick={setToday}
-            className="rounded-lg bg-zinc-900 border border-white/5 px-2.5 py-1 text-[10px] font-bold text-indigo-400 hover:bg-zinc-800"
+            className="rounded-lg bg-zinc-900 border border-white/5 px-2.5 py-1 text-[10px] font-bold text-accent-soft hover:bg-zinc-800"
           >
             Today
           </button>
@@ -399,9 +391,9 @@ export const DailyBoard: React.FC = () => {
         {/* Smart input bar */}
         <div className="md:col-span-7 flex flex-col gap-4">
           <form onSubmit={handleAiSubmit} className="relative group">
-            <div className="absolute inset-0 -m-0.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-indigo-600 opacity-0 group-focus-within:opacity-20 blur transition-opacity" />
+            <div className="absolute inset-0 -m-0.5 rounded-2xl bg-gradient-to-r from-accent to-accent-strong opacity-0 group-focus-within:opacity-20 blur transition-opacity" />
             <div className="relative flex items-center gap-2 rounded-2xl border border-white/10 bg-[#121216] p-2">
-              <Sparkles className="h-5 w-5 text-indigo-400 ml-3 flex-shrink-0" />
+              <Sparkles className="h-5 w-5 text-accent-soft ml-3 flex-shrink-0" />
               <input 
                 type="text"
                 value={aiInput}
@@ -413,7 +405,7 @@ export const DailyBoard: React.FC = () => {
               <button 
                 type="submit"
                 disabled={isAiParsing}
-                className="rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2 font-display text-xs font-bold text-white shadow shadow-indigo-500/20 hover:brightness-115 disabled:opacity-50"
+                className="rounded-xl bg-gradient-to-r from-accent to-accent-strong px-4 py-2 font-display text-xs font-bold text-white shadow shadow-accent/20 hover:brightness-115 disabled:opacity-50"
               >
                 {isAiParsing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Pin with AI'}
               </button>
@@ -431,7 +423,7 @@ export const DailyBoard: React.FC = () => {
               {!aiBriefing ? (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent-soft">
                       <Sparkle className="h-4 w-4" />
                     </div>
                     <div>
@@ -442,7 +434,7 @@ export const DailyBoard: React.FC = () => {
                   <button 
                     onClick={triggerBriefing}
                     disabled={isBriefingLoading}
-                    className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3 py-1.5 font-display text-[10px] font-bold text-indigo-400 hover:bg-indigo-500/10"
+                    className="rounded-lg border border-accent/20 bg-accent/5 px-3 py-1.5 font-display text-[10px] font-bold text-accent-soft hover:bg-accent/10"
                   >
                     {isBriefingLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Coach Briefing'}
                   </button>
@@ -452,7 +444,7 @@ export const DailyBoard: React.FC = () => {
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="relative rounded-xl border border-indigo-500/15 bg-indigo-500/[0.02] p-3 text-xs leading-relaxed text-zinc-300"
+                  className="relative rounded-xl border border-accent/15 bg-accent/5 p-3 text-xs leading-relaxed text-zinc-300"
                 >
                   <p>{aiBriefing}</p>
                   <button 
@@ -478,7 +470,7 @@ export const DailyBoard: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search sticky board..."
-            className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] py-2 pr-4 pl-9 text-xs text-white placeholder-zinc-500 outline-none focus:border-indigo-500"
+            className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] py-2 pr-4 pl-9 text-xs text-white placeholder-zinc-500 outline-none focus:border-accent"
           />
         </div>
 
@@ -490,7 +482,7 @@ export const DailyBoard: React.FC = () => {
               onClick={() => setActiveCategory(cat)}
               className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all ${
                 activeCategory === cat 
-                  ? 'bg-indigo-500 text-white shadow shadow-indigo-500/20' 
+                  ? 'bg-accent text-white shadow shadow-accent/20' 
                   : 'border border-white/5 bg-zinc-950 text-zinc-500 hover:text-zinc-300'
               }`}
             >
@@ -507,7 +499,7 @@ export const DailyBoard: React.FC = () => {
               onClick={() => setBoardViewMode('freeform')}
               className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all ${
                 boardViewMode === 'freeform'
-                  ? 'bg-indigo-500 text-white shadow'
+                  ? 'bg-accent text-white shadow'
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
               title="Freeform Drag & Drop Workspace"
@@ -519,7 +511,7 @@ export const DailyBoard: React.FC = () => {
               onClick={() => setBoardViewMode('grid')}
               className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all ${
                 boardViewMode === 'grid'
-                  ? 'bg-indigo-500 text-white shadow'
+                  ? 'bg-accent text-white shadow'
                   : 'text-zinc-500 hover:text-zinc-300'
               }`}
               title="Automated Sorted Grid"
@@ -533,7 +525,7 @@ export const DailyBoard: React.FC = () => {
           {boardViewMode === 'freeform' && filteredTodos.length > 0 && (
             <button
               onClick={organizeBoardGrid}
-              className="flex items-center gap-1.5 rounded-xl border border-white/5 bg-zinc-900 px-3.5 py-2 text-[9px] font-bold text-indigo-400 hover:bg-zinc-800 transition-all uppercase tracking-wider"
+              className="flex items-center gap-1.5 rounded-xl border border-white/5 bg-zinc-900 px-3.5 py-2 text-[9px] font-bold text-accent-soft hover:bg-zinc-800 transition-all uppercase tracking-wider"
               title="Align notes back into a beautiful clean grid"
             >
               <Sparkle className="h-3.5 w-3.5" />
@@ -544,7 +536,7 @@ export const DailyBoard: React.FC = () => {
           {/* Manual Sticky creation button */}
           <button 
             onClick={() => setIsFormOpen(true)}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-indigo-500 px-4 py-2 font-display text-xs font-bold text-white shadow-lg shadow-indigo-500/15 hover:bg-indigo-600"
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-2 font-display text-xs font-bold text-white shadow-lg shadow-accent/15 hover:bg-accent-strong"
           >
             <Plus className="h-4 w-4" />
             <span>New Note</span>
@@ -617,8 +609,8 @@ export const DailyBoard: React.FC = () => {
                 dragMomentum={!isFreeform}
                 dragTransition={isFreeform ? undefined : { bounceStiffness: 400, bounceDamping: 25 }}
                 onDragStart={() => setDraggedId(todo.id)}
-                onDrag={isFreeform ? undefined : (e, info) => handleDrag(todo.id, e, info)}
-                onDragEnd={isFreeform ? (e, info) => handleFreeformDragEnd(todo, index, e, info) : () => setDraggedId(null)}
+                onDrag={isFreeform ? undefined : (_e, info) => handleDrag(todo.id, info)}
+                onDragEnd={isFreeform ? (e) => handleFreeformDragEnd(todo, e) : () => setDraggedId(null)}
                 whileDrag={{ scale: 1.05, rotate: 0, zIndex: 50 }}
                 data-todo-id={todo.id}
                 className={`folded-corner group relative w-64 p-5 shadow-sticky hover:shadow-sticky-hover cursor-grab ${
@@ -830,7 +822,7 @@ export const DailyBoard: React.FC = () => {
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
                   placeholder="Task title..."
-                  className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-4 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-4 py-2 text-xs text-white outline-none focus:border-accent"
                 />
               </div>
 
@@ -841,7 +833,7 @@ export const DailyBoard: React.FC = () => {
                   onChange={(e) => setFormDesc(e.target.value)}
                   placeholder="Extra details..."
                   rows={2}
-                  className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-4 py-2 text-xs text-white outline-none focus:border-indigo-500 resize-none"
+                  className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-4 py-2 text-xs text-white outline-none focus:border-accent resize-none"
                 />
               </div>
 
@@ -851,7 +843,7 @@ export const DailyBoard: React.FC = () => {
                   <select 
                     value={formPriority}
                     onChange={(e) => setFormPriority(e.target.value as Priority)}
-                    className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                    className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-3.5 py-2 text-xs text-white outline-none focus:border-accent"
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -865,7 +857,7 @@ export const DailyBoard: React.FC = () => {
                   <select 
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
-                    className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                    className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-3.5 py-2 text-xs text-white outline-none focus:border-accent"
                   >
                     <option value="Personal">Personal</option>
                     <option value="Work">Work</option>
@@ -883,7 +875,7 @@ export const DailyBoard: React.FC = () => {
                   type="time" 
                   value={formDueTime}
                   onChange={(e) => setFormDueTime(e.target.value)}
-                  className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-4 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-4 py-2 text-xs text-white outline-none focus:border-accent"
                 />
               </div>
 
@@ -897,7 +889,7 @@ export const DailyBoard: React.FC = () => {
                       type="button"
                       onClick={() => setFormColor(color)}
                       className={`h-5 w-5 rounded-full border ${
-                        formColor === color ? 'ring-2 ring-indigo-500 border-white' : 'border-white/10'
+                        formColor === color ? 'ring-2 ring-accent border-white' : 'border-white/10'
                       }`}
                       style={{ 
                         backgroundColor: color === 'yellow' ? '#fde047' : 
@@ -922,7 +914,7 @@ export const DailyBoard: React.FC = () => {
                     value={newSubtask}
                     onChange={(e) => setNewSubtask(e.target.value)}
                     placeholder="Subtask name..."
-                    className="flex-1 rounded-xl border border-white/5 bg-[#0c0c0e] px-4 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                    className="flex-1 rounded-xl border border-white/5 bg-[#0c0c0e] px-4 py-2 text-xs text-white outline-none focus:border-accent"
                   />
                   <button 
                     type="button" 
@@ -960,7 +952,7 @@ export const DailyBoard: React.FC = () => {
                 </button>
                 <button 
                   type="submit"
-                  className="rounded-xl bg-indigo-500 px-4 py-2.5 font-display text-xs font-bold text-white hover:bg-indigo-600"
+                  className="rounded-xl bg-accent px-4 py-2.5 font-display text-xs font-bold text-white hover:bg-accent-strong"
                 >
                   Pin to Board
                 </button>

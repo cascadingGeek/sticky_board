@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
-import { BarChart3, Flame, CheckCircle2, CircleAlert, Sparkles, PieChart, TrendingUp, HelpCircle } from 'lucide-react';
+import { Flame, CheckCircle2, CircleAlert, PieChart, TrendingUp } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export const AnalyticsView: React.FC = () => {
@@ -20,7 +20,7 @@ export const AnalyticsView: React.FC = () => {
     <div className="min-h-screen px-4 py-6 md:pl-72 md:pr-8 md:py-8 pb-24 md:pb-8">
       {/* Header */}
       <div className="border-b border-white/5 pb-6">
-        <span className="text-[10px] uppercase font-mono tracking-wider text-indigo-400 font-bold">Metrics Dashboard</span>
+        <span className="text-[10px] uppercase font-mono tracking-wider text-accent-soft font-bold">Metrics Dashboard</span>
         <h1 className="font-display text-3xl font-extrabold text-white tracking-tight">Productivity Analytics</h1>
       </div>
 
@@ -89,7 +89,7 @@ export const AnalyticsView: React.FC = () => {
         <div className="lg:col-span-8 rounded-2xl border border-white/5 bg-[#0c0c0e] p-6 shadow-xl">
           <div className="flex items-center justify-between border-b border-white/5 pb-4">
             <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-indigo-400" />
+              <TrendingUp className="h-4 w-4 text-accent-soft" />
               <h3 className="font-display text-sm font-bold text-white">Weekly Activity Flow</h3>
             </div>
             <span className="text-[10px] font-mono uppercase text-zinc-500">Distribution per weekday</span>
@@ -111,7 +111,7 @@ export const AnalyticsView: React.FC = () => {
                   </div>
 
                   {/* Visual Bar Stack */}
-                  <div className="relative flex flex-col justify-end w-7 sm:w-10 h-44 rounded-lg bg-white/[0.01] overflow-hidden border border-white/5 hover:border-indigo-500/30 transition-all">
+                  <div className="relative flex flex-col justify-end w-7 sm:w-10 h-44 rounded-lg bg-white/[0.01] overflow-hidden border border-white/5 hover:border-accent/30 transition-all">
                     {/* Pending segment */}
                     <div 
                       className="bg-rose-500/25 transition-all duration-500" 
@@ -138,7 +138,7 @@ export const AnalyticsView: React.FC = () => {
         <div className="lg:col-span-4 rounded-2xl border border-white/5 bg-[#0c0c0e] p-6 shadow-xl flex flex-col">
           <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-6">
             <div className="flex items-center gap-2">
-              <PieChart className="h-4 w-4 text-indigo-400" />
+              <PieChart className="h-4 w-4 text-accent-soft" />
               <h3 className="font-display text-sm font-bold text-white">Category Allocation</h3>
             </div>
           </div>

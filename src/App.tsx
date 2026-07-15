@@ -17,7 +17,7 @@ function AppContent() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0F0F11] text-white">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-accent border-t-transparent" />
           <span className="font-display text-xs font-semibold tracking-wider text-zinc-500 uppercase">Loading board...</span>
         </div>
       </div>

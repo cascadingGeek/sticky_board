@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Timer as TimerIcon, Play, Pause, RotateCcw, Volume2, VolumeX, Flame, Focus, Coffee, Sparkles } from 'lucide-react';
+import { Play, Pause, RotateCcw, Volume2, VolumeX, Focus, Coffee } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const FocusView: React.FC = () => {
@@ -11,12 +11,11 @@ export const FocusView: React.FC = () => {
 
   // Synthesizer background audio state
   const [isAmbientPlaying, setIsAmbientPlaying] = useState<boolean>(false);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const synthNodesRef = useRef<{ osc1: OscillatorNode; osc2: OscillatorNode; gain: GainNode } | null>(null);
 
   // Timer core tick interval
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
 
     if (isActive) {
       interval = setInterval(() => {
@@ -91,7 +90,6 @@ export const FocusView: React.FC = () => {
       try {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
         const ctx = new AudioCtx();
-        audioContextRef.current = ctx;
 
         const osc1 = ctx.createOscillator();
         const osc2 = ctx.createOscillator();
@@ -170,7 +168,7 @@ export const FocusView: React.FC = () => {
             animate={{ scale: [1, 1.05, 1], opacity: [0.03, 0.08, 0.03] }}
             exit={{ opacity: 0 }}
             transition={{ repeat: Infinity, duration: 6, ease: 'easeInOut' }}
-            className="absolute h-96 w-96 rounded-full bg-indigo-500/20 blur-3xl pointer-events-none"
+            className="absolute h-96 w-96 rounded-full bg-accent/20 blur-3xl pointer-events-none"
           />
         )}
       </AnimatePresence>
@@ -180,7 +178,7 @@ export const FocusView: React.FC = () => {
         <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#0c0c0e] px-4 py-1.5 shadow">
           {mode === 'work' ? (
             <>
-              <Focus className="h-4 w-4 text-indigo-400" />
+              <Focus className="h-4 w-4 text-accent-soft" />
               <span className="font-display text-xs font-bold text-white tracking-wide uppercase">Deep Focus block</span>
             </>
           ) : (
@@ -208,7 +206,7 @@ export const FocusView: React.FC = () => {
               cy="144"
               r="124"
               className={`transition-all duration-300 ${
-                mode === 'work' ? 'stroke-indigo-500' : 'stroke-emerald-500'
+                mode === 'work' ? 'stroke-accent' : 'stroke-emerald-500'
               }`}
               strokeWidth="6"
               fill="transparent"
@@ -243,7 +241,7 @@ export const FocusView: React.FC = () => {
             className={`rounded-2xl px-8 py-3.5 font-display text-sm font-bold flex items-center gap-2 shadow-lg transition-all active:scale-95 ${
               isActive 
                 ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' 
-                : 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-indigo-500/15 hover:brightness-110'
+                : 'bg-gradient-to-r from-accent to-accent-strong text-white shadow-accent/15 hover:brightness-110'
             }`}
           >
             {isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
@@ -255,7 +253,7 @@ export const FocusView: React.FC = () => {
             onClick={toggleAmbientSound}
             className={`rounded-xl border p-3 transition-all ${
               isAmbientPlaying 
-                ? 'border-indigo-500/20 bg-indigo-500/5 text-indigo-400' 
+                ? 'border-accent/20 bg-accent/5 text-accent-soft' 
                 : 'border-white/5 bg-[#0c0c0e] text-zinc-500 hover:text-zinc-300'
             }`}
           >
@@ -269,7 +267,7 @@ export const FocusView: React.FC = () => {
             onClick={() => setPreset(25)}
             className={`rounded-xl px-4 py-2 font-display text-xs font-bold ${
               duration === 25 && mode === 'work'
-                ? 'bg-indigo-500 text-white' 
+                ? 'bg-accent text-white' 
                 : 'border border-white/5 bg-zinc-950 text-zinc-500 hover:text-zinc-300'
             }`}
           >
@@ -280,7 +278,7 @@ export const FocusView: React.FC = () => {
             onClick={() => setPreset(50)}
             className={`rounded-xl px-4 py-2 font-display text-xs font-bold ${
               duration === 50 && mode === 'work'
-                ? 'bg-indigo-500 text-white' 
+                ? 'bg-accent text-white' 
                 : 'border border-white/5 bg-zinc-950 text-zinc-500 hover:text-zinc-300'
             }`}
           >

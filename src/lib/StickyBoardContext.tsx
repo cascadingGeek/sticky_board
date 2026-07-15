@@ -1,26 +1,40 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { User, Todo, UserPreferences, DashboardStats, Priority } from '../types';
+import { createMockUser, createMockTodos, mockId } from './mockData';
+import { todayStr, offsetDateStr, toDateStr } from './dates';
+
+/**
+ * StickyBoard global store.
+ *
+ * BACKEND STATUS: the Express API has been removed from this repo — every
+ * action below currently mutates local dummy state (persisted to
+ * localStorage so the presentation survives refreshes). Each mutation is
+ * marked with a `TODO(backend)` comment naming the endpoint to call once
+ * the Node/Express backend exists. The full API contract lives in
+ * STICKY_BOARD_REVIEW.md — keep these function signatures unchanged so
+ * re-integration only touches this file.
+ */
 
 interface StickyBoardContextType {
   user: User | null;
-  todos: Todo[];
+  todos: Todo[]; // todos for the currently viewed date
+  allTodos: Todo[]; // every todo across all dates (used by Calendar densities)
   currentDateStr: string;
   activeTab: 'board' | 'calendar' | 'analytics' | 'focus' | 'settings';
   isLoading: boolean;
   stats: DashboardStats | null;
-  isDemo: boolean;
-  
+
   // Navigation
   setCurrentDateStr: (date: string) => void;
   setActiveTab: (tab: 'board' | 'calendar' | 'analytics' | 'focus' | 'settings') => void;
-  
+
   // Auth
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, name: string) => Promise<boolean>;
-  loginWithOAuthToken: (token: string) => void;
+  loginWithOAuth: (provider: 'google' | 'github') => Promise<boolean>;
   logout: () => void;
   updatePreferences: (prefs: Partial<UserPreferences>) => Promise<boolean>;
-  
+
   // CRUD Actions
   addTodo: (todo: {
     title: string;
@@ -30,28 +44,52 @@ interface StickyBoardContextType {
     dueTime?: string;
     noteColor?: string;
     estimatedMinutes?: number;
+    dateStr?: string;
     subtasks?: { title: string; isCompleted: boolean }[];
   }) => Promise<boolean>;
   updateTodo: (id: string, updates: Partial<Todo>) => Promise<boolean>;
   deleteTodo: (id: string) => Promise<boolean>;
   duplicateTodo: (id: string) => Promise<boolean>;
   reorderTodos: (orderedIds: string[]) => Promise<boolean>;
-  
+
   // AI Actions
   parseAIQuery: (query: string) => Promise<{
     success: boolean;
-    todo?: any;
+    todo?: {
+      title: string;
+      description?: string;
+      priority: Priority;
+      category: string;
+      dueTime?: string;
+      estimatedMinutes?: number;
+      dateOffset: number;
+    };
     error?: string;
   }>;
   getAIBriefing: (type: 'morning' | 'evening') => Promise<string>;
-  
+
   // Demo Mode Helpers
   startDemo: () => void;
 }
 
 const StickyBoardContext = createContext<StickyBoardContextType | undefined>(undefined);
 
-// Audio Synthesis for physical satisfying interaction sounds
+const STORAGE_USER = 'stickyboard_user';
+const STORAGE_TODOS = 'stickyboard_todos';
+// TODO(backend): restore `stickyboard_token` storage — persist the Bearer
+// token returned by POST /api/auth/login|register and bootstrap the session
+// with GET /api/auth/me on mount.
+
+const COLOR_PRESETS = ['yellow', 'blue', 'green', 'pink', 'purple', 'orange', 'mint', 'cream'];
+
+const colorForPriority = (priority: Priority): string => {
+  if (priority === 'critical') return 'pink';
+  if (priority === 'high') return 'orange';
+  if (priority === 'medium') return 'yellow';
+  return 'green';
+};
+
+// Audio synthesis for physical, satisfying interaction sounds
 const playSound = (type: 'check' | 'pop' | 'crumple' | 'success') => {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -88,23 +126,23 @@ const playSound = (type: 'check' | 'pop' | 'crumple' | 'success') => {
       }
       const noise = ctx.createBufferSource();
       noise.buffer = buffer;
-      
+
       const filter = ctx.createBiquadFilter();
       filter.type = 'bandpass';
       filter.frequency.value = 1000;
-      
+
       noise.connect(filter);
       filter.connect(gain);
-      
+
       gain.gain.setValueAtTime(0.12, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-      
+
       noise.start();
       noise.stop(ctx.currentTime + 0.2);
     } else if (type === 'success') {
       // Arpeggio chime chord
       const now = ctx.currentTime;
-      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+      const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
       notes.forEach((freq, idx) => {
         const o = ctx.createOscillator();
         const g = ctx.createGain();
@@ -120,610 +158,378 @@ const playSound = (type: 'check' | 'pop' | 'crumple' | 'success') => {
       });
     }
   } catch (err) {
-    console.warn("Audio Context blocked or failed:", err);
+    console.warn('Audio Context blocked or failed:', err);
   }
 };
 
 export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [currentDateStr, setCurrentDateStr] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [allTodos, setAllTodos] = useState<Todo[]>([]);
+  const [currentDateStr, setCurrentDateStr] = useState<string>(todayStr());
   const [activeTab, setActiveTab] = useState<'board' | 'calendar' | 'analytics' | 'focus' | 'settings'>('board');
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [isDemo, setIsDemo] = useState<boolean>(false);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('stickyboard_token'));
 
-  // Default demo data
-  const loadDemoData = () => {
-    setIsDemo(true);
-    setUser({
-      id: 'demo-user',
-      email: 'demo@stickyboard.co',
-      name: 'Guest Planner',
-      createdAt: new Date().toISOString(),
-      preferences: {
-        theme: 'dark',
-        accentColor: '#f43f5e',
-        handwritingFont: true,
-        soundEnabled: true,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        startOfWeek: 1,
-        defaultPriority: 'medium',
-        stickyColorMode: 'auto'
+  // Restore the local session on load.
+  // TODO(backend): replace with GET /api/auth/me using the stored Bearer token.
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem(STORAGE_USER);
+      const storedTodos = localStorage.getItem(STORAGE_TODOS);
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+        setAllTodos(storedTodos ? JSON.parse(storedTodos) : createMockTodos());
       }
+    } catch (err) {
+      console.warn('Failed to restore local session:', err);
+      localStorage.removeItem(STORAGE_USER);
+      localStorage.removeItem(STORAGE_TODOS);
+    }
+    setIsLoading(false);
+  }, []);
+
+  // Persist dummy data so the presentation survives refreshes.
+  useEffect(() => {
+    if (!user) return;
+    try {
+      localStorage.setItem(STORAGE_USER, JSON.stringify(user));
+      localStorage.setItem(STORAGE_TODOS, JSON.stringify(allTodos));
+    } catch (err) {
+      console.warn('Failed to persist local session:', err);
+    }
+  }, [user, allTodos]);
+
+  // Todos for the currently viewed date.
+  // TODO(backend): replace with GET /api/todos?dateStr=<currentDateStr>.
+  const todos = useMemo(
+    () => allTodos.filter(t => t.dateStr === currentDateStr),
+    [allTodos, currentDateStr]
+  );
+
+  // Dashboard stats computed locally from the dummy data.
+  // TODO(backend): replace with GET /api/analytics/summary.
+  const stats = useMemo<DashboardStats | null>(() => {
+    if (!user) return null;
+
+    const completed = allTodos.filter(t => t.isCompleted);
+    const total = allTodos.length;
+
+    // Heatmap: completed count per day
+    const heatmap: Record<string, number> = {};
+    completed.forEach(t => {
+      heatmap[t.dateStr] = (heatmap[t.dateStr] || 0) + 1;
     });
 
-    const today = new Date().toISOString().split("T")[0];
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
-    
-    const demoTodos: Todo[] = [
-      {
-        id: 'demo-1',
-        userId: 'demo-user',
-        title: 'Organize dynamic sticky notes by priority 🏷️',
-        description: 'Drag, click, edit, and filter notes with standard smooth spring physics.',
-        isCompleted: false,
-        dateStr: today,
-        priority: 'high',
-        category: 'Personal',
-        noteColor: 'orange',
-        subtasks: [
-          { id: 'ds-1', title: 'Hover note for shortcut tools', isCompleted: true },
-          { id: 'ds-2', title: 'Double-click note to edit', isCompleted: false }
-        ],
-        isPinned: true,
-        isFavorite: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: 'demo-2',
-        userId: 'demo-user',
-        title: 'Check this todo to trigger physical pin and confetti animations 📌',
-        description: 'Click the checkbox: the push pin pops out, paper wiggles and falls off, and micro-confetti triggers!',
-        isCompleted: false,
-        dateStr: today,
-        priority: 'critical',
-        category: 'Work',
-        noteColor: 'pink',
-        subtasks: [],
-        isPinned: false,
-        isFavorite: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: 'demo-3',
-        userId: 'demo-user',
-        title: 'Try Focus Mode with the Pomodoro Timer ⏱️',
-        description: 'Tap "Focus" in the sidebar to enter distraction-free mode with an integrated timer and relaxing sounds.',
-        isCompleted: false,
-        dateStr: today,
-        priority: 'medium',
-        category: 'Personal',
-        noteColor: 'yellow',
-        subtasks: [],
-        isPinned: false,
-        isFavorite: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: 'demo-4',
-        userId: 'demo-user',
-        title: 'Review the weekly summary in the Calendar 📅',
-        description: 'Every date shows task densities. Previous dates remain frozen in time, preserving history.',
-        isCompleted: true,
-        dateStr: today,
-        priority: 'low',
-        category: 'Health',
-        noteColor: 'green',
-        subtasks: [],
-        isPinned: false,
-        isFavorite: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-    ];
-    setTodos(demoTodos);
-    setIsLoading(false);
-  };
-
-  const startDemo = () => {
-    loadDemoData();
-  };
-
-  // Check login session on load
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (!token) {
-        setIsLoading(false);
-        return;
-      }
-      try {
-        const response = await fetch('/api/auth/me', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data.user);
-          setIsDemo(false);
-        } else {
-          // Stale session
-          localStorage.removeItem('stickyboard_token');
-          setToken(null);
-        }
-      } catch (err) {
-        console.error("Auth check failed:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    checkAuth();
-  }, [token]);
-
-  // Fetch todos whenever viewed date or active user changes
-  useEffect(() => {
-    if (isDemo || !user) return;
-
-    const fetchTodos = async () => {
-      try {
-        const res = await fetch(`/api/todos?dateStr=${currentDateStr}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setTodos(data.todos);
-        }
-      } catch (err) {
-        console.error("Failed to fetch todos:", err);
-      }
-    };
-    fetchTodos();
-  }, [currentDateStr, user, token, isDemo]);
-
-  // Fetch stats periodically
-  const fetchStats = async () => {
-    if (isDemo) {
-      // Mock stats for demo
-      const completed = todos.filter(t => t.isCompleted).length;
-      const total = todos.length;
-      setStats({
-        completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
-        totalCompleted: completed,
-        totalPending: total - completed,
-        streak: { currentStreak: 3, longestStreak: 7, lastCompletedDate: currentDateStr },
-        categoryDistribution: [
-          { name: 'Personal', value: 2, color: '#f43f5e' },
-          { name: 'Work', value: 1, color: '#3b82f6' },
-          { name: 'Health', value: 1, color: '#10b981' }
-        ],
-        weeklyActivity: [
-          { day: 'Mon', completed: 3, pending: 1 },
-          { day: 'Tue', completed: 4, pending: 0 },
-          { day: 'Wed', completed: completed, pending: total - completed },
-          { day: 'Thu', completed: 0, pending: 0 },
-          { day: 'Fri', completed: 0, pending: 0 },
-          { day: 'Sat', completed: 0, pending: 0 },
-          { day: 'Sun', completed: 0, pending: 0 }
-        ],
-        heatmap: { [currentDateStr]: completed }
-      });
-      return;
+    // Streak: consecutive days (ending today or yesterday) with >= 1 completion
+    const today = todayStr();
+    let currentStreak = 0;
+    let cursor = heatmap[today] ? today : offsetDateStr(today, -1);
+    while (heatmap[cursor]) {
+      currentStreak += 1;
+      cursor = offsetDateStr(cursor, -1);
     }
 
-    if (!user || !token) return;
-
-    try {
-      const res = await fetch('/api/analytics/summary', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data);
+    let longestStreak = 0;
+    Object.keys(heatmap).forEach(dateStr => {
+      if (heatmap[offsetDateStr(dateStr, -1)]) return; // not a streak start
+      let length = 0;
+      let day = dateStr;
+      while (heatmap[day]) {
+        length += 1;
+        day = offsetDateStr(day, 1);
       }
-    } catch (err) {
-      console.error("Failed to fetch stats:", err);
-    }
-  };
+      longestStreak = Math.max(longestStreak, length);
+    });
 
-  useEffect(() => {
-    fetchStats();
-  }, [user, todos, isDemo]);
+    // Category distribution with display colors
+    const categoryColor = (name: string) => {
+      if (name === 'Work') return '#3b82f6';
+      if (name === 'Urgent' || name === 'Critical') return '#ef4444';
+      if (name === 'Finance') return '#f59e0b';
+      if (name === 'Health') return '#ec4899';
+      return '#10b981';
+    };
+    const categories: Record<string, number> = {};
+    allTodos.forEach(t => {
+      const cat = t.category || 'Personal';
+      categories[cat] = (categories[cat] || 0) + 1;
+    });
+    const categoryDistribution = Object.entries(categories).map(([name, value]) => ({
+      name,
+      value,
+      color: categoryColor(name)
+    }));
+
+    // Weekly activity for the current week (Sun..Sat)
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const weeklyActivity = daysOfWeek.map((day, offset) => {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + offset);
+      const dateStr = toDateStr(date);
+      const dayTodos = allTodos.filter(t => t.dateStr === dateStr);
+      return {
+        day,
+        completed: dayTodos.filter(t => t.isCompleted).length,
+        pending: dayTodos.filter(t => !t.isCompleted).length
+      };
+    });
+
+    return {
+      completionRate: total > 0 ? Math.round((completed.length / total) * 100) : 0,
+      totalCompleted: completed.length,
+      totalPending: total - completed.length,
+      streak: {
+        currentStreak,
+        longestStreak: Math.max(longestStreak, currentStreak),
+        lastCompletedDate: completed.length > 0 ? completed[completed.length - 1].dateStr : undefined
+      },
+      categoryDistribution,
+      weeklyActivity,
+      heatmap
+    };
+  }, [user, allTodos]);
+
+  const signInLocally = (email: string, name: string) => {
+    setUser(createMockUser(email, name));
+    setAllTodos(createMockTodos());
+  };
 
   // Auth: Login
-  const login = async (email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        localStorage.setItem('stickyboard_token', data.token);
-        setToken(data.token);
-        setUser(data.user);
-        setIsDemo(false);
-        setIsLoading(false);
-        return true;
-      }
-    } catch (err) {
-      console.error("Login failed:", err);
-    }
-    setIsLoading(false);
-    return false;
+  // TODO(backend): POST /api/auth/login { email, password } -> { token, user }
+  const login = async (email: string, _password: string): Promise<boolean> => {
+    signInLocally(email, email.split('@')[0] || 'Planner');
+    return true;
   };
 
   // Auth: Register
-  const register = async (email: string, password: string, name: string): Promise<boolean> => {
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        localStorage.setItem('stickyboard_token', data.token);
-        setToken(data.token);
-        setUser(data.user);
-        setIsDemo(false);
-        setIsLoading(false);
-        return true;
-      }
-    } catch (err) {
-      console.error("Registration failed:", err);
-    }
-    setIsLoading(false);
-    return false;
+  // TODO(backend): POST /api/auth/register { email, password, name } -> { token, user }
+  const register = async (email: string, _password: string, name: string): Promise<boolean> => {
+    signInLocally(email, name);
+    return true;
   };
 
-  // Auth: Google / OAuth login token assignment
-  const loginWithOAuthToken = (newToken: string) => {
-    localStorage.setItem('stickyboard_token', newToken);
-    setToken(newToken);
-    setIsDemo(false);
+  // Auth: OAuth sign-in
+  // TODO(backend): GET /api/auth/<provider>/url -> open popup -> receive token
+  // via postMessage -> GET /api/auth/me. See STICKY_BOARD_REVIEW.md §4.2.
+  const loginWithOAuth = async (provider: 'google' | 'github'): Promise<boolean> => {
+    signInLocally(`guest@${provider}.demo`, provider === 'google' ? 'Google Guest' : 'GitHub Guest');
+    return true;
   };
 
   // Auth: Logout
   const logout = () => {
-    localStorage.removeItem('stickyboard_token');
-    setToken(null);
+    localStorage.removeItem(STORAGE_USER);
+    localStorage.removeItem(STORAGE_TODOS);
     setUser(null);
-    setTodos([]);
-    setIsDemo(false);
+    setAllTodos([]);
     setActiveTab('board');
   };
 
   // Preferences Update
+  // TODO(backend): PUT /api/auth/preferences (partial) -> { preferences }
   const updatePreferences = async (prefs: Partial<UserPreferences>): Promise<boolean> => {
-    if (isDemo) {
-      setUser(prev => prev ? {
-        ...prev,
-        preferences: { ...prev.preferences, ...prefs }
-      } : null);
-      return true;
-    }
-
-    try {
-      const res = await fetch('/api/auth/preferences', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(prefs)
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(prev => prev ? { ...prev, preferences: data.preferences } : null);
-        return true;
-      }
-    } catch (err) {
-      console.error("Failed to update preferences:", err);
-    }
-    return false;
+    setUser(prev => (prev ? { ...prev, preferences: { ...prev.preferences, ...prefs } } : null));
+    return true;
   };
 
   // CRUD: Add Todo
-  const addTodo = async (todoDraft: any): Promise<boolean> => {
-    const playEffect = user?.preferences?.soundEnabled ?? true;
+  // TODO(backend): POST /api/todos -> 201 { todo }
+  const addTodo: StickyBoardContextType['addTodo'] = async (draft) => {
+    if (!user) return false;
 
-    if (isDemo) {
-      const newTodo: Todo = {
-        id: `demo-${Date.now()}`,
-        userId: 'demo-user',
-        title: todoDraft.title,
-        description: todoDraft.description || '',
-        isCompleted: false,
-        dateStr: currentDateStr,
-        priority: todoDraft.priority || 'medium',
-        category: todoDraft.category || 'Personal',
-        noteColor: todoDraft.noteColor || 'yellow',
-        subtasks: (todoDraft.subtasks || []).map((s: any, idx: number) => ({
-          id: `demo-sub-${Date.now()}-${idx}`,
-          title: s.title,
-          isCompleted: false
-        })),
-        dueTime: todoDraft.dueTime || undefined,
-        estimatedMinutes: todoDraft.estimatedMinutes || undefined,
-        isPinned: false,
-        isFavorite: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      if (playEffect) playSound('pop');
-      setTodos(prev => [...prev, newTodo]);
-      return true;
-    }
+    const priority = draft.priority || 'medium';
+    const noteColor =
+      draft.noteColor && COLOR_PRESETS.includes(draft.noteColor)
+        ? draft.noteColor
+        : colorForPriority(priority);
 
-    try {
-      const res = await fetch('/api/todos', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ ...todoDraft, dateStr: currentDateStr })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (playEffect) playSound('pop');
-        setTodos(prev => [...prev, data.todo]);
-        return true;
-      }
-    } catch (err) {
-      console.error("Failed to add todo:", err);
-    }
-    return false;
+    const newTodo: Todo = {
+      id: mockId(),
+      userId: user.id,
+      title: draft.title,
+      description: draft.description || '',
+      isCompleted: false,
+      dateStr: draft.dateStr || currentDateStr,
+      priority,
+      category: draft.category || 'Personal',
+      noteColor,
+      subtasks: (draft.subtasks || []).map(s => ({
+        id: mockId(),
+        title: s.title,
+        isCompleted: !!s.isCompleted
+      })),
+      dueTime: draft.dueTime || undefined,
+      estimatedMinutes: draft.estimatedMinutes || undefined,
+      isPinned: false,
+      isFavorite: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    if (user.preferences.soundEnabled) playSound('pop');
+    setAllTodos(prev => [...prev, newTodo]);
+    return true;
   };
 
-  // CRUD: Update Todo (with optimistic state updates)
+  // CRUD: Update Todo (keep the optimistic-update pattern for the backend swap)
+  // TODO(backend): PUT /api/todos/:id -> { todo }; roll back local state on failure.
   const updateTodo = async (id: string, updates: Partial<Todo>): Promise<boolean> => {
-    const playEffect = user?.preferences?.soundEnabled ?? true;
-    
-    // Play sounds for check status
-    if (updates.isCompleted === true && playEffect) {
+    if (updates.isCompleted === true && (user?.preferences.soundEnabled ?? true)) {
       playSound('check');
       setTimeout(() => playSound('success'), 400);
     }
-
-    // Optimistic Update
-    const originalTodos = [...todos];
-    setTodos(prev => prev.map(t => t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t));
-
-    if (isDemo) {
-      return true;
-    }
-
-    try {
-      const res = await fetch(`/api/todos/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(updates)
-      });
-      if (!res.ok) {
-        // Rollback on failure
-        setTodos(originalTodos);
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error("Failed to update todo:", err);
-      setTodos(originalTodos);
-      return false;
-    }
+    setAllTodos(prev =>
+      prev.map(t => (t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t))
+    );
+    return true;
   };
 
-  // CRUD: Delete Todo (optimistic)
+  // CRUD: Delete Todo
+  // TODO(backend): DELETE /api/todos/:id; roll back local state on failure.
   const deleteTodo = async (id: string): Promise<boolean> => {
-    const playEffect = user?.preferences?.soundEnabled ?? true;
-    if (playEffect) playSound('crumple');
-
-    const originalTodos = [...todos];
-    setTodos(prev => prev.filter(t => t.id !== id));
-
-    if (isDemo) {
-      return true;
-    }
-
-    try {
-      const res = await fetch(`/api/todos/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) {
-        setTodos(originalTodos);
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error("Failed to delete todo:", err);
-      setTodos(originalTodos);
-      return false;
-    }
+    if (user?.preferences.soundEnabled ?? true) playSound('crumple');
+    setAllTodos(prev => prev.filter(t => t.id !== id));
+    return true;
   };
 
   // CRUD: Duplicate Todo
+  // TODO(backend): POST /api/todos/:id/duplicate -> 201 { todo }
   const duplicateTodo = async (id: string): Promise<boolean> => {
-    if (isDemo) {
-      const item = todos.find(t => t.id === id);
-      if (item) {
-        const copy: Todo = {
-          ...item,
-          id: `demo-${Date.now()}`,
-          title: `${item.title} (Copy)`,
-          isCompleted: false,
-          subtasks: item.subtasks.map(s => ({ ...s, id: `demo-sub-${Date.now()}-${Math.random()}`, isCompleted: false })),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        setTodos(prev => [...prev, copy]);
-        if (user?.preferences?.soundEnabled) playSound('pop');
-        return true;
-      }
-      return false;
-    }
+    const item = allTodos.find(t => t.id === id);
+    if (!item) return false;
 
-    try {
-      const res = await fetch(`/api/todos/${id}/duplicate`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTodos(prev => [...prev, data.todo]);
-        if (user?.preferences?.soundEnabled) playSound('pop');
-        return true;
-      }
-    } catch (err) {
-      console.error("Failed to duplicate todo:", err);
-    }
-    return false;
+    const copy: Todo = {
+      ...item,
+      id: mockId(),
+      title: `${item.title} (Copy)`,
+      isCompleted: false,
+      subtasks: item.subtasks.map(s => ({ ...s, id: mockId(), isCompleted: false })),
+      // Offset the copy so it doesn't stack exactly on the original in freeform mode
+      positionX: item.positionX !== undefined ? item.positionX + 24 : undefined,
+      positionY: item.positionY !== undefined ? item.positionY + 24 : undefined,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    if (user?.preferences.soundEnabled) playSound('pop');
+    setAllTodos(prev => [...prev, copy]);
+    return true;
   };
 
+  // CRUD: Reorder Todos (grid mode drag & drop)
+  // TODO(backend): PUT /api/todos/reorder { orderedIds }; roll back on failure.
   const reorderTodos = async (orderedIds: string[]): Promise<boolean> => {
-    const originalTodos = [...todos];
-
-    // Sort todos optimistically
-    const todoMap = new Map<string, Todo>(todos.map(t => [t.id, t]));
-    const reordered: Todo[] = [];
-    orderedIds.forEach(id => {
-      const todo = todoMap.get(id);
-      if (todo) {
-        reordered.push(todo);
-        todoMap.delete(id);
-      }
-    });
-    todoMap.forEach(todo => {
-      reordered.push(todo);
-    });
-
-    setTodos(reordered);
-
-    if (isDemo) {
-      return true;
-    }
-
-    try {
-      const res = await fetch('/api/todos/reorder', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ orderedIds })
-      });
-      if (!res.ok) {
-        setTodos(originalTodos);
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error("Failed to reorder todos:", err);
-      setTodos(originalTodos);
-      return false;
-    }
-  };
-
-  // AI Action: Natural Language Parse
-  const parseAIQuery = async (query: string): Promise<any> => {
-    if (isDemo) {
-      // Simulated mock parser if offline or demo
-      return {
-        success: true,
-        todo: {
-          title: query.replace(/(tomorrow|asap|today|priority high|priority critical|work|personal|at \d+\w+)/gi, '').trim() || 'AI Parsed Task',
-          priority: query.toLowerCase().includes('critical') ? 'critical' : query.toLowerCase().includes('high') ? 'high' : 'medium',
-          category: query.toLowerCase().includes('work') ? 'Work' : 'Personal',
-          dueTime: '12:00',
-          dateOffset: query.toLowerCase().includes('tomorrow') ? 1 : 0
+    setAllTodos(prev => {
+      const map = new Map(prev.map(t => [t.id, t]));
+      const reordered: Todo[] = [];
+      orderedIds.forEach(id => {
+        const todo = map.get(id);
+        if (todo) {
+          reordered.push(todo);
+          map.delete(id);
         }
-      };
-    }
-
-    try {
-      const res = await fetch('/api/gemini/parse', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ prompt: query, timezone: user?.preferences?.timezone })
       });
-      if (res.ok) {
-        const data = await res.json();
-        return { success: true, todo: data.result };
-      } else {
-        const err = await res.json();
-        return { success: false, error: err.error || "Failed to parse via AI" };
-      }
-    } catch (err: any) {
-      console.error("AI parse failed:", err);
-      return { success: false, error: err.message || "Network error while parsing" };
-    }
+      map.forEach(todo => reordered.push(todo));
+      return reordered;
+    });
+    return true;
   };
 
-  // AI Action: Daily Coaching Briefing
-  const getAIBriefing = async (type: 'morning' | 'evening'): Promise<string> => {
-    if (isDemo) {
-      return type === 'morning' 
-        ? "🌅 Welcome back to StickyBoard! Today you have several key sticky notes on the corkboard, including pinning your high-priority items. Start by popping off that critical pin!" 
-        : "🌙 Incredible evening review! You completed a task and stayed focused. Ready for a clean board tomorrow at midnight.";
+  // AI: Natural language -> structured todo.
+  // TODO(backend): POST /api/gemini/parse { prompt, timezone } -> { result }.
+  // The keyword heuristic below is a dummy stand-in for Gemini.
+  const parseAIQuery: StickyBoardContextType['parseAIQuery'] = async (query) => {
+    const q = query.toLowerCase();
+    const priority: Priority = q.includes('critical') || q.includes('asap')
+      ? 'critical'
+      : q.includes('high')
+        ? 'high'
+        : q.includes('low')
+          ? 'low'
+          : 'medium';
+    const category = q.includes('work') ? 'Work'
+      : q.includes('health') || q.includes('gym') ? 'Health'
+      : q.includes('finance') || q.includes('bill') || q.includes('budget') ? 'Finance'
+      : q.includes('urgent') ? 'Urgent'
+      : 'Personal';
+
+    const timeMatch = q.match(/at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
+    let dueTime: string | undefined;
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1], 10);
+      const mins = timeMatch[2] || '00';
+      if (timeMatch[3] === 'pm' && hours < 12) hours += 12;
+      if (timeMatch[3] === 'am' && hours === 12) hours = 0;
+      dueTime = `${String(hours).padStart(2, '0')}:${mins}`;
     }
 
-    try {
-      const res = await fetch('/api/gemini/briefing', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ dateStr: currentDateStr, type })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.briefing;
+    const title = query
+      .replace(/\b(tomorrow|today|asap|urgent|critical|high|medium|low)( priority)?\b/gi, '')
+      .replace(/\bat\s+\d{1,2}(:\d{2})?\s*(am|pm)?\b/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim() || 'New task';
+
+    return {
+      success: true,
+      todo: {
+        title: title.charAt(0).toUpperCase() + title.slice(1),
+        priority,
+        category,
+        dueTime,
+        dateOffset: q.includes('tomorrow') ? 1 : 0
       }
-    } catch (err) {
-      console.error("Briefing failed:", err);
+    };
+  };
+
+  // AI: Daily coaching briefing.
+  // TODO(backend): POST /api/gemini/briefing { dateStr, type } -> { briefing }.
+  const getAIBriefing = async (type: 'morning' | 'evening'): Promise<string> => {
+    const pending = todos.filter(t => !t.isCompleted);
+    const done = todos.filter(t => t.isCompleted);
+    if (type === 'evening') {
+      return `🌙 Lovely evening review! You completed ${done.length} of ${todos.length} notes today${done.length ? ' — well earned rest ahead' : ''}. Tomorrow brings a clean board at midnight.`;
     }
-    return "☀️ Conquering your day, one note at a time!";
+    if (pending.length === 0) {
+      return '🌅 Your corkboard is clear! Pin a note or two and make today intentional.';
+    }
+    const top = pending[0];
+    return `☀️ Good morning! You have ${pending.length} note${pending.length > 1 ? 's' : ''} pinned today. Start with "${top.title}" — popping that first pin builds momentum for everything else. ✨`;
+  };
+
+  // Guest demo mode (stays client-side even after the backend exists)
+  const startDemo = () => {
+    signInLocally('demo@stickyboard.co', 'Guest Planner');
   };
 
   return (
-    <StickyBoardContext.Provider value={{
-      user,
-      todos,
-      currentDateStr,
-      activeTab,
-      isLoading,
-      stats,
-      isDemo,
-      setCurrentDateStr,
-      setActiveTab,
-      login,
-      register,
-      loginWithOAuthToken,
-      logout,
-      updatePreferences,
-      addTodo,
-      updateTodo,
-      deleteTodo,
-      duplicateTodo,
-      reorderTodos,
-      parseAIQuery,
-      getAIBriefing,
-      startDemo
-    }}>
+    <StickyBoardContext.Provider
+      value={{
+        user,
+        todos,
+        allTodos,
+        currentDateStr,
+        activeTab,
+        isLoading,
+        stats,
+        setCurrentDateStr,
+        setActiveTab,
+        login,
+        register,
+        loginWithOAuth,
+        logout,
+        updatePreferences,
+        addTodo,
+        updateTodo,
+        deleteTodo,
+        duplicateTodo,
+        reorderTodos,
+        parseAIQuery,
+        getAIBriefing,
+        startDemo
+      }}
+    >
       {children}
     </StickyBoardContext.Provider>
   );

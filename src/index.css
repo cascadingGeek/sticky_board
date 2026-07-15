@@ -5,39 +5,85 @@
   --font-display: "Inter", "Space Grotesk", sans-serif;
   --font-handwritten: "Caveat", "Kalam", cursive;
   --font-mono: "JetBrains Mono", monospace;
+
+  /*
+   * Semantic theme tokens. Dark values are the defaults; `:root.light`
+   * below overrides them when the user's `theme` preference is 'light'.
+   * The accent scale derives from --sb-accent, which is set at runtime
+   * from the user's `accentColor` preference (defaults to indigo).
+   */
+  --color-app: #0f0f11;                      /* page background */
+  --color-surface: #0c0c0e;                  /* cards */
+  --color-panel: #16161c;                    /* modals / raised panels */
+  --color-field: #09090b;                    /* inputs & wells */
+  --color-muted: #18181b;                    /* neutral button fills */
+  --color-muted-strong: #27272a;             /* neutral hover fills */
+  --color-ink: #fafafa;                      /* primary text */
+  --color-ink-soft: #a1a1aa;                 /* secondary text */
+  --color-ink-faint: #71717a;                /* tertiary text */
+  --color-line: rgba(255, 255, 255, 0.06);   /* hairline borders */
+  --color-line-strong: rgba(255, 255, 255, 0.12);
+  --color-raise-faint: rgba(255, 255, 255, 0.02); /* subtle fills */
+  --color-raise: rgba(255, 255, 255, 0.05);
+  --color-raise-strong: rgba(255, 255, 255, 0.1);
+  --color-accent: var(--sb-accent, #6366f1);
+  --color-accent-strong: color-mix(in srgb, var(--sb-accent, #6366f1) 85%, black);
+  --color-accent-soft: color-mix(in srgb, var(--sb-accent, #6366f1) 72%, white);
+}
+
+:root {
+  --sb-dot: rgba(255, 255, 255, 0.05);
+  --sb-glass: rgba(15, 15, 17, 0.85);
+  --sb-scrollbar: rgba(255, 255, 255, 0.1);
+  --sb-scrollbar-hover: rgba(255, 255, 255, 0.2);
+}
+
+/* Light theme — toggled by setting the `light` class on <html> */
+:root.light {
+  --color-app: #f1f1f3;
+  --color-surface: #ffffff;
+  --color-panel: #ffffff;
+  --color-field: #f4f4f5;
+  --color-muted: #e9e9eb;
+  --color-muted-strong: #d9d9de;
+  --color-ink: #1a1a1e;
+  --color-ink-soft: #52525b;
+  --color-ink-faint: #85858e;
+  --color-line: rgba(0, 0, 0, 0.08);
+  --color-line-strong: rgba(0, 0, 0, 0.14);
+  --color-raise-faint: rgba(0, 0, 0, 0.025);
+  --color-raise: rgba(0, 0, 0, 0.045);
+  --color-raise-strong: rgba(0, 0, 0, 0.08);
+  /* On light surfaces, "soft" accent text must get darker, not lighter */
+  --color-accent-soft: color-mix(in srgb, var(--sb-accent, #6366f1) 85%, black);
+  --sb-dot: rgba(0, 0, 0, 0.08);
+  --sb-glass: rgba(250, 250, 250, 0.85);
+  --sb-scrollbar: rgba(0, 0, 0, 0.15);
+  --sb-scrollbar-hover: rgba(0, 0, 0, 0.3);
 }
 
 @layer utilities {
   /* Paper textures and physical corkboards - Immersive bg-dots style */
   .corkboard-grid {
-    background-color: #0F0F11;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-color: var(--color-app);
+    background-image: radial-gradient(var(--sb-dot) 1px, transparent 1px);
     background-size: 24px 24px;
     position: relative;
   }
 
   .bg-dots {
-    background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-image: radial-gradient(var(--sb-dot) 1px, transparent 1px);
     background-size: 24px 24px;
   }
 
   .gradient-glow {
-    background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
+    background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--color-accent) 8%, transparent) 0%, transparent 70%);
   }
 
   .sidebar-glass {
-    background: rgba(15, 15, 17, 0.85);
+    background: var(--sb-glass);
     backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  /* Stat progress ring */
-  .stat-ring {
-    background: conic-gradient(#6366f1 78%, transparent 0);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    border-right: 1px solid var(--color-line);
   }
 
   /* Paper Curl Shadows for highly realistic 3D appearance */
@@ -103,11 +149,11 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--sb-scrollbar);
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--sb-scrollbar-hover);
   }
 
   /* Frosted Glass */

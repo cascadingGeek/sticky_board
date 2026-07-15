@@ -1,7 +1,6 @@
 import React from 'react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
-import { Settings, Eye, Volume2, Sparkles, Key, Palette, Layout, BadgeCheck } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Key, Palette, Layout, BadgeCheck } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
   const { user, updatePreferences } = useStickyBoard();
@@ -23,7 +22,7 @@ export const SettingsView: React.FC = () => {
     <div className="min-h-screen px-4 py-6 md:pl-72 md:pr-8 md:py-8 pb-24 md:pb-8">
       {/* Header */}
       <div className="border-b border-white/5 pb-6">
-        <span className="text-[10px] uppercase font-mono tracking-wider text-indigo-400 font-bold">Preferences</span>
+        <span className="text-[10px] uppercase font-mono tracking-wider text-accent-soft font-bold">Preferences</span>
         <h1 className="font-display text-3xl font-extrabold text-white tracking-tight">Personalization</h1>
       </div>
 
@@ -31,7 +30,7 @@ export const SettingsView: React.FC = () => {
         {/* SECTION 1: VISUAL THEME ACCENTS */}
         <div className="rounded-2xl border border-white/5 bg-[#0c0c0e] p-6 shadow-xl">
           <div className="flex items-center gap-2.5 border-b border-white/5 pb-4 mb-6">
-            <Palette className="h-4.5 w-4.5 text-indigo-400" />
+            <Palette className="h-4.5 w-4.5 text-accent-soft" />
             <h3 className="font-display text-sm font-bold text-white">Visual Themes</h3>
           </div>
 
@@ -45,7 +44,7 @@ export const SettingsView: React.FC = () => {
                     onClick={() => updatePreferences({ accentColor: color.value })}
                     className={`flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-xs font-semibold transition-all hover:bg-white/[0.02] ${
                       prefs.accentColor === color.value 
-                        ? 'border-indigo-500 bg-indigo-500/5 text-white' 
+                        ? 'border-accent bg-accent/5 text-white' 
                         : 'border-white/5 bg-zinc-950 text-zinc-500'
                     }`}
                   >
@@ -61,7 +60,7 @@ export const SettingsView: React.FC = () => {
         {/* SECTION 2: PHYSICALITY & FEEDBACK */}
         <div className="rounded-2xl border border-white/5 bg-[#0c0c0e] p-6 shadow-xl">
           <div className="flex items-center gap-2.5 border-b border-white/5 pb-4 mb-6">
-            <Layout className="h-4.5 w-4.5 text-indigo-400" />
+            <Layout className="h-4.5 w-4.5 text-accent-soft" />
             <h3 className="font-display text-sm font-bold text-white">Tactile Feedback</h3>
           </div>
 
@@ -77,7 +76,7 @@ export const SettingsView: React.FC = () => {
               <button
                 onClick={() => updatePreferences({ handwritingFont: !prefs.handwritingFont })}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ${
-                  prefs.handwritingFont ? 'bg-indigo-500' : 'bg-zinc-800'
+                  prefs.handwritingFont ? 'bg-accent' : 'bg-zinc-800'
                 }`}
               >
                 <span
@@ -99,7 +98,7 @@ export const SettingsView: React.FC = () => {
               <button
                 onClick={() => updatePreferences({ soundEnabled: !prefs.soundEnabled })}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors outline-none ${
-                  prefs.soundEnabled ? 'bg-indigo-500' : 'bg-zinc-800'
+                  prefs.soundEnabled ? 'bg-accent' : 'bg-zinc-800'
                 }`}
               >
                 <span
@@ -113,19 +112,20 @@ export const SettingsView: React.FC = () => {
         </div>
 
         {/* SECTION 3: PLATFORM SECURITY AND API INSTRUCTION */}
-        <div className="rounded-2xl border border-indigo-500/10 bg-gradient-to-tr from-indigo-950/10 to-zinc-950 p-6">
+        <div className="rounded-2xl border border-accent/10 bg-gradient-to-tr from-accent/5 to-zinc-950 p-6">
           <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 flex-shrink-0">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 text-accent-soft flex-shrink-0">
               <Key className="h-5 w-5" />
             </div>
             <div>
-              <h4 className="font-display text-sm font-bold text-white">Gemini API Key Secure Configuration</h4>
+              <h4 className="font-display text-sm font-bold text-white">AI Assistance (Gemini)</h4>
               <p className="text-xs text-zinc-400 leading-normal mt-2">
-                StickyBoard integrates fully with the Gemini API to parse voice-like text commands and compile productivity reports.
+                StickyBoard integrates with the Gemini API to parse natural-language commands and compile daily coach briefings.
+                AI requests are proxied through the StickyBoard backend — currently running on local demo data while the API is under development.
               </p>
               <div className="mt-4 flex items-center gap-2 text-[11px] text-emerald-400 font-semibold">
                 <BadgeCheck className="h-4 w-4" />
-                <span>API Key is managed securely in Settings &gt; Secrets. No client exposure.</span>
+                <span>The API key lives server-side only. No client exposure.</span>
               </div>
             </div>
           </div>

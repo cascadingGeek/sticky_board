@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
-import { Eye, EyeOff, KeyRound, Mail, Sparkles, User, ArrowRight, Github } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { Eye, EyeOff, KeyRound, Mail, Sparkles, User, ArrowRight } from 'lucide-react';
+import { motion } from 'motion/react';
+
+// Inline GitHub mark — lucide's brand icons (Github) are deprecated
+const GithubIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12 0 1.53-.01 2.76-.01 3.14 0 .3.2.66.8.55A10.52 10.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z" />
+  </svg>
+);
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -9,7 +16,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
-  const { login, register, startDemo, loginWithOAuthToken } = useStickyBoard();
+  const { login, register, startDemo, loginWithOAuth } = useStickyBoard();
   const [isSignUp, setIsSignUp] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -69,102 +76,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  // TODO(backend): replace with the real popup OAuth flow — fetch
+  // /api/auth/<provider>/url, open it in a popup, and listen for the
+  // OAUTH_AUTH_SUCCESS postMessage (validate event.origin!). The original
+  // implementation is documented in STICKY_BOARD_REVIEW.md §4.2.
+  const handleOAuthLogin = async (provider: 'google' | 'github') => {
     setError(null);
     setLoading(true);
-    try {
-      const response = await fetch(`/api/auth/google/url?origin=${encodeURIComponent(window.location.origin)}`);
-      if (!response.ok) {
-        throw new Error('Failed to generate Google login link');
-      }
-      const { url } = await response.json();
-
-      // Open the Google authorization URL directly in a popup window
-      const width = 500;
-      const height = 655;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
-
-      const popup = window.open(
-        url,
-        'google_oauth_popup',
-        `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`
-      );
-
-      if (!popup) {
-        setError('Popup blocked! Please enable popups for this site to sign in with Google.');
-      }
-    } catch (err: any) {
-      console.error('Google login initiating failed:', err);
-      setError(err.message || 'Failed to initialize Google Sign In');
-    } finally {
-      setLoading(false);
-    }
+    const success = await loginWithOAuth(provider);
+    setLoading(false);
+    if (success) onClose();
+    else setError(`Failed to sign in with ${provider === 'google' ? 'Google' : 'GitHub'}`);
   };
-
-  const handleGithubLogin = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/auth/github/url?origin=${encodeURIComponent(window.location.origin)}`);
-      if (!response.ok) {
-        throw new Error('Failed to generate GitHub login link');
-      }
-      const { url } = await response.json();
-
-      // Open the GitHub authorization URL directly in a popup window
-      const width = 500;
-      const height = 655;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
-
-      const popup = window.open(
-        url,
-        'github_oauth_popup',
-        `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`
-      );
-
-      if (!popup) {
-        setError('Popup blocked! Please enable popups for this site to sign in with GitHub.');
-      }
-    } catch (err: any) {
-      console.error('GitHub login initiating failed:', err);
-      setError(err.message || 'Failed to initialize GitHub Sign In');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleMessage = (event: MessageEvent) => {
-      const origin = event.origin;
-      if (!origin.endsWith('.run.app') && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
-        return;
-      }
-      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
-        const token = event.data.token;
-        if (token) {
-          loginWithOAuthToken(token);
-          onClose();
-        }
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [isOpen, loginWithOAuthToken, onClose]);
 
   if (!isOpen) return null;
 
-  const containerVariants = isMobile 
+  const containerVariants = isMobile
     ? {
         initial: { y: "100%", opacity: 1 },
-        animate: { y: 0, opacity: 1, transition: { type: 'spring', damping: 25, stiffness: 220 } },
-        exit: { y: "100%", opacity: 1, transition: { duration: 0.2, ease: 'easeIn' } }
+        animate: { y: 0, opacity: 1, transition: { type: 'spring' as const, damping: 25, stiffness: 220 } },
+        exit: { y: "100%", opacity: 1, transition: { duration: 0.2, ease: 'easeIn' as const } }
       }
     : {
         initial: { scale: 0.95, opacity: 0, y: 15 },
-        animate: { scale: 1, opacity: 1, y: 0, transition: { type: 'spring', damping: 25, stiffness: 350 } },
+        animate: { scale: 1, opacity: 1, y: 0, transition: { type: 'spring' as const, damping: 25, stiffness: 350 } },
         exit: { scale: 0.95, opacity: 0, y: 15, transition: { duration: 0.15 } }
       };
 
@@ -326,7 +261,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full">
               <button
                 type="button"
-                onClick={handleGoogleLogin}
+                onClick={() => handleOAuthLogin('google')}
                 disabled={loading}
                 className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-[#16161b] hover:bg-zinc-900/80 py-2.5 font-display text-sm font-semibold text-white shadow-md transition-all active:scale-98 disabled:opacity-50"
               >
@@ -338,11 +273,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
               <button
                 type="button"
-                onClick={handleGithubLogin}
+                onClick={() => handleOAuthLogin('github')}
                 disabled={loading}
                 className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-[#16161b] hover:bg-zinc-900/80 py-2.5 font-display text-sm font-semibold text-white shadow-md transition-all active:scale-98 disabled:opacity-50"
               >
-                <Github className="h-5 w-5 text-white" />
+                <GithubIcon className="h-5 w-5 text-white" />
                 <span>GitHub</span>
               </button>
             </div>

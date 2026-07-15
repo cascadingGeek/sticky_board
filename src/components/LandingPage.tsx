@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
-import { Sparkles, ArrowRight, Play, CheckCircle2, ChevronDown, Check, Trash2, Calendar, Focus, Eye, Brain } from 'lucide-react';
+import { Sparkles, ArrowRight, Play, ChevronDown, Check, Trash2, Calendar, Focus, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface LandingPageProps {
@@ -234,7 +234,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartAuth }) => {
                 const isPink = todo.color === 'pink';
                 const isMint = todo.color === 'mint';
                 const isBlue = todo.color === 'blue';
-                const isYellow = todo.color === 'yellow';
 
                 return (
                   <motion.div
