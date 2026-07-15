@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { User, Todo, UserPreferences, DashboardStats, Priority } from '../types';
 import { createMockUser, createMockTodos, mockId } from './mockData';
-import { todayStr, offsetDateStr, toDateStr } from './dates';
+import { todayInTz, offsetDateStr, toDateStr } from './dates';
 
 /**
  * StickyBoard global store.
@@ -27,6 +27,8 @@ interface StickyBoardContextType {
   // Navigation
   setCurrentDateStr: (date: string) => void;
   setActiveTab: (tab: 'board' | 'calendar' | 'analytics' | 'focus' | 'settings') => void;
+  /** Today's date string, respecting the user's timezone preference */
+  getToday: () => string;
 
   // Auth
   login: (email: string, password: string) => Promise<boolean>;
@@ -162,30 +164,55 @@ const playSound = (type: 'check' | 'pop' | 'crumple' | 'success') => {
   }
 };
 
-export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [allTodos, setAllTodos] = useState<Todo[]>([]);
-  const [currentDateStr, setCurrentDateStr] = useState<string>(todayStr());
-  const [activeTab, setActiveTab] = useState<'board' | 'calendar' | 'analytics' | 'focus' | 'settings'>('board');
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-
-  // Restore the local session on load.
-  // TODO(backend): replace with GET /api/auth/me using the stored Bearer token.
-  useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem(STORAGE_USER);
-      const storedTodos = localStorage.getItem(STORAGE_TODOS);
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
-        setAllTodos(storedTodos ? JSON.parse(storedTodos) : createMockTodos());
-      }
-    } catch (err) {
-      console.warn('Failed to restore local session:', err);
-      localStorage.removeItem(STORAGE_USER);
-      localStorage.removeItem(STORAGE_TODOS);
+// Restore the persisted dummy session synchronously (used as lazy initial state).
+// TODO(backend): replace with an async GET /api/auth/me bootstrap using the
+// stored Bearer token — that's when `isLoading` becomes a real state again.
+const loadStoredSession = (): { user: User | null; todos: Todo[] } => {
+  try {
+    const storedUser = localStorage.getItem(STORAGE_USER);
+    const storedTodos = localStorage.getItem(STORAGE_TODOS);
+    if (storedUser) {
+      return {
+        user: JSON.parse(storedUser),
+        todos: storedTodos ? JSON.parse(storedTodos) : createMockTodos()
+      };
     }
-    setIsLoading(false);
-  }, []);
+  } catch (err) {
+    console.warn('Failed to restore local session:', err);
+    localStorage.removeItem(STORAGE_USER);
+    localStorage.removeItem(STORAGE_TODOS);
+  }
+  return { user: null, todos: [] };
+};
+
+export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [initialSession] = useState(loadStoredSession);
+  const [user, setUser] = useState<User | null>(initialSession.user);
+  const [allTodos, setAllTodos] = useState<Todo[]>(initialSession.todos);
+  const [currentDateStr, setCurrentDateStr] = useState<string>(() =>
+    todayInTz(initialSession.user?.preferences.timezone)
+  );
+  const [activeTab, setActiveTab] = useState<'board' | 'calendar' | 'analytics' | 'focus' | 'settings'>('board');
+  // The dummy session restores synchronously; a live API bootstrap will make
+  // this stateful again.
+  const isLoading = false;
+
+  // Apply theme & accent preferences to the document root. The `light`
+  // class flips the semantic color tokens in index.css; --sb-accent drives
+  // the accent color scale.
+  useEffect(() => {
+    const root = document.documentElement;
+    const prefs = user?.preferences;
+    root.classList.toggle('light', prefs?.theme === 'light');
+    root.classList.toggle('no-handwriting', prefs?.handwritingFont === false);
+    if (prefs?.accentColor) {
+      root.style.setProperty('--sb-accent', prefs.accentColor);
+    } else {
+      root.style.removeProperty('--sb-accent');
+    }
+  }, [user]);
+
+  const getToday = () => todayInTz(user?.preferences.timezone);
 
   // Persist dummy data so the presentation survives refreshes.
   useEffect(() => {
@@ -220,7 +247,7 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
     });
 
     // Streak: consecutive days (ending today or yesterday) with >= 1 completion
-    const today = todayStr();
+    const today = todayInTz(user.preferences.timezone);
     let currentStreak = 0;
     let cursor = heatmap[today] ? today : offsetDateStr(today, -1);
     while (heatmap[cursor]) {
@@ -259,18 +286,20 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
       color: categoryColor(name)
     }));
 
-    // Weekly activity for the current week (Sun..Sat)
+    // Weekly activity for the current week, respecting the user's
+    // start-of-week preference (0 = Sunday, 1 = Monday)
+    const startOfWeek = user.preferences.startOfWeek ?? 0;
+    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const now = new Date();
     const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay());
-    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const weeklyActivity = daysOfWeek.map((day, offset) => {
+    weekStart.setDate(now.getDate() - ((now.getDay() - startOfWeek + 7) % 7));
+    const weeklyActivity = Array.from({ length: 7 }, (_, offset) => {
       const date = new Date(weekStart);
       date.setDate(weekStart.getDate() + offset);
       const dateStr = toDateStr(date);
       const dayTodos = allTodos.filter(t => t.dateStr === dateStr);
       return {
-        day,
+        day: dayLabels[(startOfWeek + offset) % 7],
         completed: dayTodos.filter(t => t.isCompleted).length,
         pending: dayTodos.filter(t => !t.isCompleted).length
       };
@@ -292,8 +321,10 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [user, allTodos]);
 
   const signInLocally = (email: string, name: string) => {
-    setUser(createMockUser(email, name));
+    const newUser = createMockUser(email, name);
+    setUser(newUser);
     setAllTodos(createMockTodos());
+    setCurrentDateStr(todayInTz(newUser.preferences.timezone));
   };
 
   // Auth: Login
@@ -339,8 +370,11 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const addTodo: StickyBoardContextType['addTodo'] = async (draft) => {
     if (!user) return false;
 
-    const priority = draft.priority || 'medium';
+    const priority = draft.priority || user.preferences.defaultPriority || 'medium';
+    // 'auto' color mode always derives the paper color from priority;
+    // 'manual' honors the user's explicit pick.
     const noteColor =
+      user.preferences.stickyColorMode !== 'auto' &&
       draft.noteColor && COLOR_PRESETS.includes(draft.noteColor)
         ? draft.noteColor
         : colorForPriority(priority);
@@ -515,6 +549,7 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
         stats,
         setCurrentDateStr,
         setActiveTab,
+        getToday,
         login,
         register,
         loginWithOAuth,

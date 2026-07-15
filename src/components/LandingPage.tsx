@@ -17,7 +17,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartAuth }) => {
     { id: 3, title: 'Pristine paper-curled drop shadows', isCompleted: true, color: 'mint', rot: -1 }
   ]);
   const [newTodoText, setNewTodoText] = useState('');
-  const [demoConfetti, setDemoConfetti] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
+  const [demoConfetti, setDemoConfetti] = useState<{ id: number; x: number; y: number; dx: number; dy: number; color: string }[]>([]);
 
   // FAQ Toggle states
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -59,6 +59,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartAuth }) => {
       id: Date.now() + i,
       x: x + (Math.random() * 80 - 40),
       y: y + (Math.random() * 80 - 40),
+      dx: Math.random() * 60 - 30,
+      dy: Math.random() * 60 - 30,
       color: particleColors[Math.floor(Math.random() * particleColors.length)]
     }));
 
@@ -85,11 +87,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartAuth }) => {
     },
     {
       q: "Can I use StickyBoard offline?",
-      a: "Absolutely. Our single-player guest mode stores all credentials and notes directly inside your local browser storage. If you sign up for a cloud account, notes synchronize across all devices instantly."
+      a: "Absolutely. Our single-player guest mode stores all notes directly inside your local browser storage. Cloud accounts with cross-device sync are coming with the StickyBoard backend."
     },
     {
       q: "Is there keyboard support?",
-      a: "Yes. StickyBoard supports a global command palette via Ctrl/Cmd + K, arrow keys to navigate boards, and tactile shortcuts for creating, pinning, and deleting tasks."
+      a: "Yes. Press Ctrl/Cmd + K anywhere in the workspace to open the command palette — search actions, jump between views, or type a title to create a note instantly. On the board, use ← and → to travel between days, T to jump to today, and N to pin a new note."
     }
   ];
 
@@ -298,11 +300,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartAuth }) => {
               <motion.div
                 key={particle.id}
                 initial={{ x: particle.x, y: particle.y, scale: 1, opacity: 1 }}
-                animate={{ 
-                  y: particle.y + (Math.random() * 60 - 30), 
-                  x: particle.x + (Math.random() * 60 - 30), 
-                  scale: 0.1, 
-                  opacity: 0 
+                animate={{
+                  y: particle.y + particle.dy,
+                  x: particle.x + particle.dx,
+                  scale: 0.1,
+                  opacity: 0
                 }}
                 transition={{ duration: 0.8 }}
                 className="absolute z-30 h-1.5 w-1.5 rounded-full"

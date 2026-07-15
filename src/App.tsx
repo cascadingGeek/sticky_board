@@ -8,6 +8,7 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { FocusView } from './components/FocusView';
 import { SettingsView } from './components/SettingsView';
 import { AuthModal } from './components/AuthModal';
+import { CommandPalette } from './components/CommandPalette';
 
 function AppContent() {
   const { user, activeTab, isLoading } = useStickyBoard();
@@ -15,17 +16,17 @@ function AppContent() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0F0F11] text-white">
+      <div className="flex min-h-screen items-center justify-center bg-app text-ink">
         <div className="flex flex-col items-center gap-4">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-accent border-t-transparent" />
-          <span className="font-display text-xs font-semibold tracking-wider text-zinc-500 uppercase">Loading board...</span>
+          <span className="font-display text-xs font-semibold tracking-wider text-ink-faint uppercase">Loading board...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0F0F11] text-zinc-100 font-sans">
+    <div className="min-h-screen bg-app text-ink font-sans">
       {!user ? (
         // If not logged in, show the gorgeous immersive landing page
         <LandingPage onStartAuth={() => setIsAuthOpen(true)} />
@@ -36,7 +37,7 @@ function AppContent() {
           <Sidebar />
 
           {/* Main Workspace Frame */}
-          <main className="flex-1 min-h-screen bg-[#0F0F11] relative">
+          <main className="flex-1 min-h-screen bg-app relative">
             {/* Direct dynamic layout loading */}
             {activeTab === 'board' && <DailyBoard />}
             {activeTab === 'calendar' && <CalendarView />}
@@ -49,6 +50,9 @@ function AppContent() {
 
       {/* Floating Auth Modal overlay */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+
+      {/* ⌘K command palette + global keyboard shortcuts (signed-in only) */}
+      <CommandPalette />
     </div>
   );
 }

@@ -13,6 +13,23 @@ export const toDateStr = (date: Date): string => {
 
 export const todayStr = (): string => toDateStr(new Date());
 
+/**
+ * Today's date in a specific IANA timezone (falls back to the device zone
+ * when omitted or invalid). 'en-CA' formats as YYYY-MM-DD.
+ */
+export const todayInTz = (timeZone?: string): string => {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+  } catch {
+    return todayStr();
+  }
+};
+
 export const offsetDateStr = (dateStr: string, days: number): string => {
   const [y, m, d] = dateStr.split('-').map(Number);
   const date = new Date(y, m - 1, d);

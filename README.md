@@ -8,8 +8,9 @@ A **tactile daily planner** — your todos are sticky notes pinned to a virtual 
 - **The Board** — create notes via a form or a natural-language AI bar ("Review budget tomorrow at 2pm high priority"), double-click to edit inline, complete/delete/duplicate/pin/favorite, subtasks, 4 priorities, 5 category presets, 8 paper colors. Two layouts: **Freeform** (drag notes anywhere, positions persist) and **Grid** (drag to reorder).
 - **Calendar** — month view with real per-day completed/pending density; click any day to open its board.
 - **Analytics** — completion rate, habit streaks (current/longest), category distribution, weekly activity, all computed from board data.
-- **Focus Mode** — Pomodoro timer (25/50 work, 5/15 break) with ambient synth audio. Fully client-side.
-- **Settings** — accent color, handwriting font, sound effects, and other preferences.
+- **Focus Mode** — Pomodoro timer (25/50 work, 5/15 break) with ambient synth audio, optionally linked to a note from today's board (complete it right from the timer). Fully client-side.
+- **Command palette & keyboard shortcuts** — `⌘/Ctrl+K` opens a palette (navigate views, run actions, or type a title to instantly create a note). On the board: `←`/`→` move between days, `T` jumps to today, `N` opens the new-note form.
+- **Settings that actually apply** — dark/light theme, accent color (drives the whole accent scale via CSS variables), timezone (controls when "Today" rolls over), week start day (Calendar + weekly analytics), default priority, automatic-vs-manual note colors, handwriting font, and sound effects.
 - **Auth screens** — email/password + Google/GitHub buttons (currently mocked; any credentials sign you into a local dummy workspace), plus a guest demo mode.
 
 ## Tech Stack
@@ -30,7 +31,7 @@ npm install
 npm run dev        # Vite dev server on http://localhost:5173
 ```
 
-Other scripts: `npm run build` (type-check + production build), `npm run preview`, `npm run lint` (tsc only — no ESLint configured yet).
+Other scripts: `npm run build` (type-check + production build), `npm run preview`, `npm run lint` (ESLint + tsc).
 
 No environment variables are needed — the app is self-contained until the backend lands.
 
@@ -52,10 +53,11 @@ src/
     ├── LandingPage.tsx       # Marketing page w/ interactive sandbox board
     ├── AuthModal.tsx         # Sign in/up + (mocked) OAuth buttons
     ├── Sidebar.tsx           # Desktop sidebar + mobile bottom nav
+    ├── CommandPalette.tsx    # ⌘K palette + global keyboard shortcuts
     ├── DailyBoard.tsx        # The corkboard: notes, filters, AI bar, form modal
     ├── CalendarView.tsx      # Month grid with task densities
     ├── AnalyticsView.tsx     # Stats dashboard
-    ├── FocusView.tsx         # Pomodoro timer
+    ├── FocusView.tsx         # Pomodoro timer (linkable to a note)
     └── SettingsView.tsx      # Preferences
 ```
 
@@ -67,9 +69,11 @@ src/
 4. **Dummy-data persistence.** The mock session lives in `localStorage` (`stickyboard_user`, `stickyboard_todos`). "Exit Workspace" (logout) clears it. Any email/password signs you in.
 5. **Fonts** are loaded from Google Fonts in [`index.html`](index.html) (Inter, Space Grotesk, Caveat, Kalam, JetBrains Mono).
 
+## Theming
+
+The dashboard is themed through semantic color tokens defined in [`src/index.css`](src/index.css) (`bg-app`, `bg-surface`, `bg-panel`, `text-ink`, `border-line`, `bg-accent`, …). Dark values are the defaults; the `light` class on `<html>` (set from the user's `theme` preference) flips them, and `--sb-accent` (set from `accentColor`) drives the whole accent scale via `color-mix`. When adding UI, use the tokens — not hardcoded zinc/indigo classes — so both themes and custom accents keep working. The landing page and auth modal are intentionally dark-only (pre-login, no preferences yet).
+
 ## Roadmap
 
 - [ ] Node.js/Express backend (separate repo) — auth, todos, analytics, Gemini proxy, Google/GitHub OAuth
 - [ ] Re-wire this frontend to the live API (checklist in `STICKY_BOARD_REVIEW.md` §7)
-- [ ] Apply stored preferences that the UI doesn't respect yet (theme, accent color, start-of-week, default priority)
-- [ ] Features promised on the landing page: command palette (⌘K), keyboard navigation

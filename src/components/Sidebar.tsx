@@ -30,20 +30,20 @@ export const Sidebar: React.FC = () => {
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
-            <span className="font-display text-sm font-bold tracking-tight text-white">StickyBoard</span>
+            <span className="font-display text-sm font-bold tracking-tight text-ink">StickyBoard</span>
             <span className="block text-[9px] font-semibold tracking-wider text-accent-soft uppercase">Daily Planner</span>
           </div>
         </div>
 
         {/* Profile summary with Streak Flame */}
-        <div className="mt-8 flex items-center justify-between rounded-xl bg-white/[0.02] border border-white/5 p-3">
+        <div className="mt-8 flex items-center justify-between rounded-xl bg-raise-faint border border-line p-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/20 text-accent-soft font-bold text-xs uppercase flex-shrink-0">
               {user.name.substring(0, 2)}
             </div>
             <div className="min-w-0">
-              <span className="block font-medium text-xs text-white truncate">{user.name}</span>
-              <span className="block text-[10px] text-zinc-500 truncate">{user.email}</span>
+              <span className="block font-medium text-xs text-ink truncate">{user.name}</span>
+              <span className="block text-[10px] text-ink-faint truncate">{user.email}</span>
             </div>
           </div>
 
@@ -67,19 +67,19 @@ export const Sidebar: React.FC = () => {
                 onClick={() => setActiveTab(item.id)}
                 className={`relative group flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium outline-none transition-all ${
                   isActive 
-                    ? 'text-white font-semibold' 
-                    : 'text-zinc-400 hover:bg-white/[0.02] hover:text-white'
+                    ? 'text-ink font-semibold' 
+                    : 'text-ink-soft hover:bg-raise-faint hover:text-ink'
                 }`}
               >
                 {isActive && (
                   <motion.div
                     layoutId="sidebar-active"
-                    className="absolute inset-0 rounded-lg bg-white/[0.04] border-l-2 border-accent"
+                    className="absolute inset-0 rounded-lg bg-raise border-l-2 border-accent"
                     transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                   />
                 )}
                 <Icon className={`relative z-10 h-4 w-4 transition-transform group-hover:scale-105 ${
-                  isActive ? 'text-accent-soft' : 'text-zinc-500 group-hover:text-zinc-300'
+                  isActive ? 'text-accent-soft' : 'text-ink-faint group-hover:text-ink-soft'
                 }`} />
                 <span className="relative z-10 font-display">{item.label}</span>
               </button>
@@ -88,8 +88,8 @@ export const Sidebar: React.FC = () => {
         </nav>
 
         {/* Progress Ring Widget */}
-        <div className="mt-auto border-t border-white/5 pt-6">
-          <div className="rounded-xl bg-white/[0.01] border border-white/5 p-4 flex flex-col items-center">
+        <div className="mt-auto border-t border-line pt-6">
+          <div className="rounded-xl bg-raise-faint border border-line p-4 flex flex-col items-center">
             <div className="relative flex items-center justify-center h-20 w-20">
               {/* SVG Progress Circle */}
               <svg className="absolute transform -rotate-90 w-full h-full">
@@ -97,7 +97,7 @@ export const Sidebar: React.FC = () => {
                   cx="40"
                   cy="40"
                   r="34"
-                  className="stroke-zinc-800"
+                  className="stroke-muted-strong"
                   strokeWidth="5"
                   fill="transparent"
                 />
@@ -113,15 +113,15 @@ export const Sidebar: React.FC = () => {
                   strokeLinecap="round"
                 />
               </svg>
-              <span className="font-mono text-sm font-extrabold text-white">{completionRate}%</span>
+              <span className="font-mono text-sm font-extrabold text-ink">{completionRate}%</span>
             </div>
-            <span className="mt-3 block font-display text-xs font-semibold text-zinc-400 uppercase tracking-wider">Today's Focus</span>
+            <span className="mt-3 block font-display text-xs font-semibold text-ink-soft uppercase tracking-wider">Today's Focus</span>
           </div>
 
           {/* Logout */}
           <button
             onClick={logout}
-            className="mt-6 flex w-full items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300 transition-all"
+            className="mt-6 flex w-full items-center gap-2 rounded-lg px-4 py-2.5 text-xs font-semibold text-ink-faint hover:bg-muted-strong hover:text-ink-soft transition-all"
           >
             <LogOut className="h-4 w-4" />
             <span>Exit Workspace</span>
@@ -130,7 +130,7 @@ export const Sidebar: React.FC = () => {
       </aside>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0c0c0e]/95 border-t border-white/10 px-4 py-2 pb-5 flex justify-around items-center backdrop-blur-md shadow-lg">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface/95 border-t border-line-strong px-4 py-2 pb-5 flex justify-around items-center backdrop-blur-md shadow-lg">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -138,10 +138,10 @@ export const Sidebar: React.FC = () => {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className="flex flex-col items-center justify-center gap-1 text-zinc-400 hover:text-white relative px-2 py-1 min-w-14"
+              className="flex flex-col items-center justify-center gap-1 text-ink-soft hover:text-ink relative px-2 py-1 min-w-14"
             >
-              <Icon className={`h-5 w-5 ${isActive ? 'text-accent-soft' : 'text-zinc-500'}`} />
-              <span className={`text-[9px] font-medium tracking-tight ${isActive ? 'text-white font-semibold' : 'text-zinc-400'}`}>
+              <Icon className={`h-5 w-5 ${isActive ? 'text-accent-soft' : 'text-ink-faint'}`} />
+              <span className={`text-[9px] font-medium tracking-tight ${isActive ? 'text-ink font-semibold' : 'text-ink-soft'}`}>
                 {item.label === 'Focus Mode' ? 'Focus' : item.label === 'My Board' ? 'Board' : item.label}
               </span>
               {isActive && (

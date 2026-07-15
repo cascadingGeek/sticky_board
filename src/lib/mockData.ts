@@ -16,7 +16,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   startOfWeek: 1,
   defaultPriority: 'medium',
-  stickyColorMode: 'auto'
+  // 'manual' shows the color picker; 'auto' derives paper color from priority
+  stickyColorMode: 'manual'
 };
 
 export const createMockUser = (email: string, name: string): User => ({

@@ -69,7 +69,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         if (success) onClose();
         else setError('Invalid email or password. Please try again.');
       }
-    } catch (err) {
+    } catch {
       setError('Connection failure. Please verify the backend status.');
     } finally {
       setLoading(false);
