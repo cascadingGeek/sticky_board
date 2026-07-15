@@ -1,0 +1,974 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useStickyBoard } from '../lib/StickyBoardContext';
+import { Todo, Priority } from '../types';
+import { 
+  Sparkles, Plus, ChevronLeft, ChevronRight, Search, Filter, 
+  Trash2, Copy, Pin, Star, Check, Edit2, Play, CheckCircle2, 
+  HelpCircle, Sparkle, Loader2, ListChecks, Calendar, Volume2, VolumeX, Eye, LayoutGrid
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+
+export const DailyBoard: React.FC = () => {
+  const { 
+    todos, currentDateStr, setCurrentDateStr, addTodo, updateTodo, 
+    deleteTodo, duplicateTodo, parseAIQuery, getAIBriefing, user, reorderTodos 
+  } = useStickyBoard();
+
+  // Container reference for boundary dragging
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // View mode: freeform corkboard dragging or sorted grid list
+  const [boardViewMode, setBoardViewMode] = useState<'freeform' | 'grid'>(() => {
+    try {
+      return (localStorage.getItem('stickyboard_view_mode') as 'freeform' | 'grid') || 'freeform';
+    } catch {
+      return 'freeform';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('stickyboard_view_mode', boardViewMode);
+    } catch (e) {
+      console.warn("Failed to save view mode to localStorage:", e);
+    }
+  }, [boardViewMode]);
+
+  // Drag and Drop state
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+
+  // Search & Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [activePriority, setActivePriority] = useState<string>('all');
+
+  // AI Briefing State
+  const [aiBriefing, setAiBriefing] = useState<string | null>(null);
+  const [isBriefingLoading, setIsBriefingLoading] = useState(false);
+
+  // Natural Language Command Bar
+  const [aiInput, setAiInput] = useState('');
+  const [isAiParsing, setIsAiParsing] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  // Todo Form Modal
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formTitle, setFormTitle] = useState('');
+  const [formDesc, setFormDesc] = useState('');
+  const [formPriority, setFormPriority] = useState<Priority>('medium');
+  const [formCategory, setFormCategory] = useState('Personal');
+  const [formColor, setFormColor] = useState('yellow');
+  const [formDueTime, setFormDueTime] = useState('');
+  const [formSubtasks, setFormSubtasks] = useState<string[]>([]);
+  const [newSubtask, setNewSubtask] = useState('');
+
+  // Editing state for Double Click
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [editingDesc, setEditingDesc] = useState('');
+
+  // Confetti particles for complete animation
+  const [confetti, setConfetti] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
+
+  // Sound enable state locally
+  const [soundOn, setSoundOn] = useState(true);
+
+  // Pre-load briefing on day change
+  useEffect(() => {
+    setAiBriefing(null);
+  }, [currentDateStr]);
+
+  // Handle AI Parse
+  const handleAiSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aiInput.trim()) return;
+
+    setIsAiParsing(true);
+    setAiError(null);
+
+    const res = await parseAIQuery(aiInput);
+    if (res.success && res.todo) {
+      // Structure the todo
+      const parsed = res.todo;
+      
+      // Calculate due date based on parsed date offset
+      let targetDateStr = currentDateStr;
+      if (parsed.dateOffset && parsed.dateOffset > 0) {
+        const offsetDate = new Date();
+        offsetDate.setDate(offsetDate.getDate() + parsed.dateOffset);
+        targetDateStr = offsetDate.toISOString().split('T')[0];
+      }
+
+      await addTodo({
+        title: parsed.title,
+        description: parsed.description,
+        priority: parsed.priority,
+        category: parsed.category,
+        dueTime: parsed.dueTime,
+        noteColor: getColorFromPriority(parsed.priority),
+        subtasks: []
+      });
+      setAiInput('');
+    } else {
+      setAiError(res.error || "Failed to process text. Try formatting simply.");
+    }
+    setIsAiParsing(false);
+  };
+
+  const getColorFromPriority = (p: string) => {
+    if (p === 'critical') return 'pink';
+    if (p === 'high') return 'orange';
+    if (p === 'medium') return 'yellow';
+    return 'green';
+  };
+
+  // Trigger Gemini Coach
+  const triggerBriefing = async () => {
+    setIsBriefingLoading(true);
+    const text = await getAIBriefing('morning');
+    setAiBriefing(text);
+    setIsBriefingLoading(false);
+  };
+
+  // Navigation: offset day
+  const offsetDay = (days: number) => {
+    const current = new Date(currentDateStr);
+    current.setDate(current.getDate() + days);
+    setCurrentDateStr(current.toISOString().split('T')[0]);
+  };
+
+  const setToday = () => {
+    setCurrentDateStr(new Date().toISOString().split('T')[0]);
+  };
+
+  // Add subtask inside Creation Form
+  const addFormSubtask = () => {
+    if (!newSubtask.trim()) return;
+    setFormSubtasks([...formSubtasks, newSubtask.trim()]);
+    setNewSubtask('');
+  };
+
+  const removeFormSubtask = (idx: number) => {
+    setFormSubtasks(formSubtasks.filter((_, i) => i !== idx));
+  };
+
+  // Submit manual creation form
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formTitle.trim()) return;
+
+    const success = await addTodo({
+      title: formTitle.trim(),
+      description: formDesc.trim(),
+      priority: formPriority,
+      category: formCategory,
+      noteColor: formColor,
+      dueTime: formDueTime || undefined,
+      subtasks: formSubtasks.map(t => ({ title: t, isCompleted: false }))
+    });
+
+    if (success) {
+      setIsFormOpen(false);
+      setFormTitle('');
+      setFormDesc('');
+      setFormPriority('medium');
+      setFormColor('yellow');
+      setFormCategory('Personal');
+      setFormDueTime('');
+      setFormSubtasks([]);
+    }
+  };
+
+  // Complete Animation: Confetti particle spawner
+  const handleCompleteClick = async (todo: Todo, e: React.MouseEvent) => {
+    const isNowCompleted = !todo.isCompleted;
+    
+    if (isNowCompleted) {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+
+      const particleColors = ['#f43f5e', '#3b82f6', '#10b981', '#fbbf24', '#a78bfa', '#ff7849'];
+      const newConfetti = Array.from({ length: 20 }).map((_, i) => ({
+        id: Date.now() + i,
+        x,
+        y,
+        color: particleColors[Math.floor(Math.random() * particleColors.length)]
+      }));
+
+      setConfetti(prev => [...prev, ...newConfetti]);
+      setTimeout(() => {
+        setConfetti(prev => prev.filter(c => !newConfetti.find(nc => nc.id === c.id)));
+      }, 1000);
+    }
+
+    await updateTodo(todo.id, { isCompleted: isNowCompleted });
+  };
+
+  // Double Click Editor Activator
+  const startEditing = (todo: Todo) => {
+    setEditingTodoId(todo.id);
+    setEditingTitle(todo.title);
+    setEditingDesc(todo.description || '');
+  };
+
+  const saveInlineEdit = async (id: string) => {
+    if (!editingTitle.trim()) return;
+    await updateTodo(id, { title: editingTitle.trim(), description: editingDesc.trim() });
+    setEditingTodoId(null);
+  };
+
+  // Categories & Priorities presets
+  const categories = ['all', 'Personal', 'Work', 'Health', 'Finance', 'Urgent'];
+  const priorities = ['all', 'low', 'medium', 'high', 'critical'];
+
+  // Hashing to generate slightly different deterministic rotations per note id
+  const getRotationAngle = (id: string) => {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = id.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return (hash % 5) * 0.7; // rotation between -2.8 and 2.8 degrees
+  };
+
+  // Filtered list
+  const filteredTodos = todos.filter(t => {
+    const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (t.description && t.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesCategory = activeCategory === 'all' || t.category === activeCategory;
+    const matchesPriority = activePriority === 'all' || t.priority === activePriority;
+    return matchesSearch && matchesCategory && matchesPriority;
+  });
+
+  // Drag-and-drop hit detection & reordering
+  const handleDrag = (id: string, event: any, info: any) => {
+    const element = document.elementFromPoint(info.point.x, info.point.y);
+    if (!element) return;
+
+    const card = element.closest('[data-todo-id]');
+    if (!card) return;
+
+    const targetId = card.getAttribute('data-todo-id');
+    if (targetId && targetId !== id) {
+      const draggedIndex = filteredTodos.findIndex(t => t.id === id);
+      const targetIndex = filteredTodos.findIndex(t => t.id === targetId);
+
+      if (draggedIndex !== -1 && targetIndex !== -1) {
+        const newFiltered = [...filteredTodos];
+        const [removed] = newFiltered.splice(draggedIndex, 1);
+        newFiltered.splice(targetIndex, 0, removed);
+
+        // Map todos to construct complete new ordered list
+        const filteredIdsSet = new Set(filteredTodos.map(t => t.id));
+        const orderedIds: string[] = [];
+        let filteredIdx = 0;
+
+        todos.forEach(todo => {
+          if (filteredIdsSet.has(todo.id)) {
+            orderedIds.push(newFiltered[filteredIdx++].id);
+          } else {
+            orderedIds.push(todo.id);
+          }
+        });
+
+        if (reorderTodos) {
+          reorderTodos(orderedIds);
+        }
+      }
+    }
+  };
+
+  // Dynamic freeform layout positioning logic
+  const getTodoCoordinates = (todo: Todo, index: number) => {
+    if (todo.positionX !== undefined && todo.positionY !== undefined) {
+      return { x: todo.positionX, y: todo.positionY };
+    }
+    
+    // Fallback: build a dynamic grid initially
+    const cols = 3;
+    const cardWidth = 270;
+    const cardHeight = 310;
+    const paddingX = 40;
+    const paddingY = 40;
+    
+    const colIndex = index % cols;
+    const rowIndex = Math.floor(index / cols);
+    
+    return {
+      x: colIndex * cardWidth + paddingX,
+      y: rowIndex * cardHeight + paddingY
+    };
+  };
+
+  // Drag-and-drop end handler for freeform boards
+  const handleFreeformDragEnd = (todo: Todo, index: number, event: any, info: any) => {
+    setDraggedId(null);
+    if (!containerRef.current) return;
+    
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const cardElement = event.target.closest('[data-todo-id]');
+    if (!cardElement) return;
+
+    const cardRect = cardElement.getBoundingClientRect();
+    const relativeX = cardRect.left - containerRect.left + containerRef.current.scrollLeft;
+    const relativeY = cardRect.top - containerRect.top + containerRef.current.scrollTop;
+
+    // Constrain within a reasonable canvas boundary
+    const maxX = Math.max(containerRect.width - 256, 1200);
+    const maxY = Math.max(containerRect.height - 300, 800);
+    const boundedX = Math.max(16, Math.min(relativeX, maxX));
+    const boundedY = Math.max(16, Math.min(relativeY, maxY));
+
+    // Save position to database via context
+    updateTodo(todo.id, { positionX: boundedX, positionY: boundedY });
+  };
+
+  // Align sticky notes into a perfect grid layout in freeform space
+  const organizeBoardGrid = () => {
+    const cols = 3;
+    const cardWidth = 270;
+    const cardHeight = 310;
+    const paddingX = 40;
+    const paddingY = 40;
+
+    filteredTodos.forEach((todo, index) => {
+      const colIndex = index % cols;
+      const rowIndex = Math.floor(index / cols);
+      const targetX = colIndex * cardWidth + paddingX;
+      const targetY = rowIndex * cardHeight + paddingY;
+
+      updateTodo(todo.id, { positionX: targetX, positionY: targetY });
+    });
+  };
+
+  // Calculate dynamic board height for freeform mode
+  let maxCalculatedHeight = 550;
+  if (boardViewMode === 'freeform') {
+    filteredTodos.forEach((todo, idx) => {
+      const coords = getTodoCoordinates(todo, idx);
+      if (coords.y + 350 > maxCalculatedHeight) {
+        maxCalculatedHeight = coords.y + 350;
+      }
+    });
+  }
+
+  return (
+    <div className="min-h-screen px-4 py-6 md:pl-72 md:pr-8 md:py-8 pb-24 md:pb-8">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/5 pb-6">
+        <div>
+          <span className="text-[10px] uppercase font-mono tracking-wider text-indigo-400">Workspace Canvas</span>
+          <h1 className="font-display text-3xl font-extrabold text-white tracking-tight">Today's Board</h1>
+        </div>
+
+        {/* Tactical Date Navigator */}
+        <div className="flex items-center gap-1.5 rounded-xl border border-white/5 bg-[#0c0c0e] p-1.5">
+          <button 
+            onClick={() => offsetDay(-1)} 
+            className="rounded-lg p-2 text-zinc-400 hover:bg-white/5 hover:text-white"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+
+          <span className="font-display text-xs font-semibold text-zinc-200 px-3">
+            {new Date(currentDateStr).toLocaleDateString('en-US', {
+              weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+            })}
+          </span>
+
+          <button 
+            onClick={() => offsetDay(1)} 
+            className="rounded-lg p-2 text-zinc-400 hover:bg-white/5 hover:text-white"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+
+          <div className="h-4 w-px bg-white/10 mx-1" />
+
+          <button 
+            onClick={setToday}
+            className="rounded-lg bg-zinc-900 border border-white/5 px-2.5 py-1 text-[10px] font-bold text-indigo-400 hover:bg-zinc-800"
+          >
+            Today
+          </button>
+        </div>
+      </div>
+
+      {/* AI ASSISTANCE BOARD & NATURAL LANGUAGE BOX */}
+      <div className="mt-6 grid gap-6 md:grid-cols-12">
+        {/* Smart input bar */}
+        <div className="md:col-span-7 flex flex-col gap-4">
+          <form onSubmit={handleAiSubmit} className="relative group">
+            <div className="absolute inset-0 -m-0.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-indigo-600 opacity-0 group-focus-within:opacity-20 blur transition-opacity" />
+            <div className="relative flex items-center gap-2 rounded-2xl border border-white/10 bg-[#121216] p-2">
+              <Sparkles className="h-5 w-5 text-indigo-400 ml-3 flex-shrink-0" />
+              <input 
+                type="text"
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                placeholder="Type naturally: 'Review design tomorrow at 2pm high priority'..."
+                className="flex-1 bg-transparent px-2 py-2 text-sm text-white placeholder-zinc-500 outline-none"
+                disabled={isAiParsing}
+              />
+              <button 
+                type="submit"
+                disabled={isAiParsing}
+                className="rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2 font-display text-xs font-bold text-white shadow shadow-indigo-500/20 hover:brightness-115 disabled:opacity-50"
+              >
+                {isAiParsing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Pin with AI'}
+              </button>
+            </div>
+          </form>
+          {aiError && (
+            <span className="text-[10px] font-medium text-rose-400 pl-4">⚠️ {aiError}</span>
+          )}
+        </div>
+
+        {/* Mini Daily Coaching widget */}
+        <div className="md:col-span-5">
+          <div className="rounded-2xl border border-white/5 bg-zinc-900/10 p-4">
+            <AnimatePresence mode="wait">
+              {!aiBriefing ? (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
+                      <Sparkle className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-display text-xs font-bold text-white">Daily Coach Insights</h4>
+                      <p className="text-[10px] text-zinc-500">Analyze today's board with Gemini</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={triggerBriefing}
+                    disabled={isBriefingLoading}
+                    className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3 py-1.5 font-display text-[10px] font-bold text-indigo-400 hover:bg-indigo-500/10"
+                  >
+                    {isBriefingLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Coach Briefing'}
+                  </button>
+                </div>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="relative rounded-xl border border-indigo-500/15 bg-indigo-500/[0.02] p-3 text-xs leading-relaxed text-zinc-300"
+                >
+                  <p>{aiBriefing}</p>
+                  <button 
+                    onClick={() => setAiBriefing(null)}
+                    className="absolute top-1.5 right-1.5 text-[9px] text-zinc-500 hover:text-zinc-300 font-semibold uppercase"
+                  >
+                    Clear
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+
+      {/* FILTER BAR & ADD TASK TRIGGER */}
+      <div className="mt-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-t border-white/5 pt-6">
+        {/* Search */}
+        <div className="relative max-w-xs flex-1">
+          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+          <input 
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search sticky board..."
+            className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] py-2 pr-4 pl-9 text-xs text-white placeholder-zinc-500 outline-none focus:border-indigo-500"
+          />
+        </div>
+
+        {/* Filter categories tags */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {categories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-all ${
+                activeCategory === cat 
+                  ? 'bg-indigo-500 text-white shadow shadow-indigo-500/20' 
+                  : 'border border-white/5 bg-zinc-950 text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Actions bar including layout toggle */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Layout Mode Selector */}
+          <div className="flex items-center rounded-xl bg-zinc-950 border border-white/5 p-1">
+            <button
+              onClick={() => setBoardViewMode('freeform')}
+              className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all ${
+                boardViewMode === 'freeform'
+                  ? 'bg-indigo-500 text-white shadow'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+              title="Freeform Drag & Drop Workspace"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span>Freeform</span>
+            </button>
+            <button
+              onClick={() => setBoardViewMode('grid')}
+              className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all ${
+                boardViewMode === 'grid'
+                  ? 'bg-indigo-500 text-white shadow'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+              title="Automated Sorted Grid"
+            >
+              <ListChecks className="h-3.5 w-3.5" />
+              <span>Grid</span>
+            </button>
+          </div>
+
+          {/* Quick Organize Button (Only visible in freeform) */}
+          {boardViewMode === 'freeform' && filteredTodos.length > 0 && (
+            <button
+              onClick={organizeBoardGrid}
+              className="flex items-center gap-1.5 rounded-xl border border-white/5 bg-zinc-900 px-3.5 py-2 text-[9px] font-bold text-indigo-400 hover:bg-zinc-800 transition-all uppercase tracking-wider"
+              title="Align notes back into a beautiful clean grid"
+            >
+              <Sparkle className="h-3.5 w-3.5" />
+              <span>Snap Grid</span>
+            </button>
+          )}
+
+          {/* Manual Sticky creation button */}
+          <button 
+            onClick={() => setIsFormOpen(true)}
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-indigo-500 px-4 py-2 font-display text-xs font-bold text-white shadow-lg shadow-indigo-500/15 hover:bg-indigo-600"
+          >
+            <Plus className="h-4 w-4" />
+            <span>New Note</span>
+          </button>
+        </div>
+      </div>
+
+      {/* CORKBOARD CONTAINER */}
+      <div 
+        ref={containerRef}
+        className={`corkboard-grid mt-6 rounded-2xl border border-white/10 p-8 relative overflow-auto ${
+          boardViewMode === 'freeform' ? 'min-h-[640px]' : 'min-h-[480px] flex flex-wrap justify-center sm:justify-start items-start gap-8'
+        }`}
+        style={boardViewMode === 'freeform' ? { height: `${maxCalculatedHeight}px` } : undefined}
+      >
+        <div className="absolute inset-0 gradient-glow pointer-events-none" />
+
+        <AnimatePresence>
+          {filteredTodos.map((todo, index) => {
+            const rotAngle = getRotationAngle(todo.id);
+            const isCompleted = todo.isCompleted;
+            const isEditing = editingTodoId === todo.id;
+            const colorClass = `sticky-${todo.noteColor}`;
+
+            // Priority tags
+            const priorityColors = {
+              low: 'bg-zinc-950/20 text-current border border-current/10',
+              medium: 'bg-amber-950/20 text-amber-900 border border-amber-900/10',
+              high: 'bg-orange-950/20 text-orange-900 border border-orange-900/10',
+              critical: 'bg-rose-950/20 text-rose-900 border border-rose-900/10'
+            };
+
+            const coords = getTodoCoordinates(todo, index);
+            const isFreeform = boardViewMode === 'freeform';
+
+            return (
+              <motion.div
+                key={todo.id}
+                layout={!isFreeform}
+                initial={
+                  isFreeform 
+                    ? { x: coords.x, y: coords.y, scale: 0.8, opacity: 0 }
+                    : { scale: 0.8, opacity: 0, rotate: rotAngle * 1.5 }
+                }
+                animate={
+                  isFreeform
+                    ? { 
+                        x: coords.x,
+                        y: coords.y,
+                        scale: isCompleted ? 0.95 : 1, 
+                        opacity: isCompleted ? 0.75 : 1, 
+                        rotate: isEditing ? 0 : rotAngle 
+                      }
+                    : { 
+                        scale: isCompleted ? 0.95 : 1, 
+                        opacity: isCompleted ? 0.75 : 1, 
+                        rotate: isEditing ? 0 : rotAngle 
+                      }
+                }
+                exit={{ scale: 0.8, opacity: 0 }}
+                style={
+                  isFreeform
+                    ? { transformOrigin: 'top center', position: 'absolute', left: 0, top: 0 }
+                    : { transformOrigin: 'top center' }
+                }
+                onDoubleClick={() => !isCompleted && startEditing(todo)}
+                drag={!isEditing && !isCompleted}
+                dragConstraints={isFreeform ? containerRef : { left: 0, right: 0, top: 0, bottom: 0 }}
+                dragElastic={isFreeform ? 0 : 1}
+                dragMomentum={!isFreeform}
+                dragTransition={isFreeform ? undefined : { bounceStiffness: 400, bounceDamping: 25 }}
+                onDragStart={() => setDraggedId(todo.id)}
+                onDrag={isFreeform ? undefined : (e, info) => handleDrag(todo.id, e, info)}
+                onDragEnd={isFreeform ? (e, info) => handleFreeformDragEnd(todo, index, e, info) : () => setDraggedId(null)}
+                whileDrag={{ scale: 1.05, rotate: 0, zIndex: 50 }}
+                data-todo-id={todo.id}
+                className={`folded-corner group relative w-64 p-5 shadow-sticky hover:shadow-sticky-hover cursor-grab ${
+                  draggedId === todo.id 
+                    ? 'z-50 cursor-grabbing shadow-2xl scale-105' 
+                    : 'transition-all duration-300'
+                } ${colorClass}`}
+              >
+                {/* Push Pin Header */}
+                <div className={`absolute top-2.5 left-1/2 z-20 h-4 w-4 -translate-x-1/2 transition-transform duration-300 group-hover:-translate-y-0.5 ${
+                  isCompleted ? 'animate-pin-pop opacity-0' : 'animate-pin-drop'
+                }`}>
+                  <div className="absolute top-0 left-1/2 h-3.5 w-3.5 -translate-x-1/2 rounded-full shadow-md" style={{ 
+                    backgroundColor: todo.noteColor === 'pink' ? '#ec4899' : 
+                                    todo.noteColor === 'mint' ? '#14b8a6' : 
+                                    todo.noteColor === 'blue' ? '#3b82f6' : 
+                                    todo.noteColor === 'green' ? '#10b981' : 
+                                    todo.noteColor === 'purple' ? '#a78bfa' : '#fbbf24' 
+                  }} />
+                  <div className="mx-auto mt-2.5 h-3 w-0.5 bg-zinc-400" />
+                </div>
+
+                {/* Corner Fold style */}
+                <div className="corner-fold" />
+
+                {/* Double Click Edit Body */}
+                {isEditing ? (
+                  <div className="space-y-3 mt-2">
+                    <input 
+                      type="text"
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      className="w-full border-b border-black/10 bg-transparent py-1 font-handwritten text-lg font-bold text-inherit outline-none"
+                    />
+                    <textarea 
+                      value={editingDesc}
+                      onChange={(e) => setEditingDesc(e.target.value)}
+                      rows={2}
+                      className="w-full bg-transparent py-1 font-handwritten text-sm text-inherit outline-none resize-none"
+                    />
+                    <div className="flex justify-end gap-1.5 pt-1">
+                      <button 
+                        onClick={() => setEditingTodoId(null)}
+                        className="rounded bg-black/5 px-2 py-1 text-[10px] font-bold uppercase tracking-wider"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={() => saveInlineEdit(todo.id)}
+                        className="rounded bg-black/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wider"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col h-full mt-2">
+                    {/* Header line info */}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`rounded px-1.5 py-0.5 text-[8px] font-extrabold uppercase ${priorityColors[todo.priority]}`}>
+                        {todo.priority}
+                      </span>
+                      {todo.dueTime && (
+                        <span className="font-mono text-[9px] font-bold uppercase tracking-wider bg-black/5 px-1 rounded">
+                          ⏰ {todo.dueTime}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Todo Main Content */}
+                    <div className="flex items-start gap-2.5 mt-1">
+                      <button 
+                        onClick={(e) => handleCompleteClick(todo, e)}
+                        className={`mt-1 flex h-4.5 w-4.5 flex-shrink-0 items-center justify-center rounded border border-current transition-all ${
+                          isCompleted ? 'bg-current' : 'hover:bg-black/5'
+                        }`}
+                      >
+                        {isCompleted && <Check className="h-3 w-3 text-zinc-900 stroke-[3]" />}
+                      </button>
+
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-handwritten text-lg font-semibold leading-tight break-words ${isCompleted ? 'line-through opacity-55 decoration-2' : ''}`}>
+                          {todo.title}
+                        </p>
+                        {todo.description && (
+                          <p className={`font-handwritten text-xs leading-normal mt-1 opacity-85 break-words ${isCompleted ? 'line-through opacity-40' : ''}`}>
+                            {todo.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Subtasks Summary */}
+                    {todo.subtasks.length > 0 && (
+                      <div className="mt-4 border-t border-black/5 pt-2 space-y-1">
+                        <div className="flex items-center gap-1 text-[9px] font-bold uppercase opacity-60">
+                          <ListChecks className="h-3 w-3" />
+                          <span>Subtasks</span>
+                        </div>
+                        {todo.subtasks.map((st) => (
+                          <div 
+                            key={st.id} 
+                            onClick={async () => {
+                              const updatedSub = todo.subtasks.map(s => s.id === st.id ? { ...s, isCompleted: !s.isCompleted } : s);
+                              await updateTodo(todo.id, { subtasks: updatedSub });
+                            }}
+                            className="flex items-center gap-2 cursor-pointer group/sub"
+                          >
+                            <div className={`h-3 w-3 rounded border border-current flex items-center justify-center ${st.isCompleted ? 'bg-current' : 'hover:bg-black/5'}`}>
+                              {st.isCompleted && <Check className="h-2.5 w-2.5 text-zinc-900 stroke-[4]" />}
+                            </div>
+                            <span className={`font-handwritten text-xs leading-none ${st.isCompleted ? 'line-through opacity-50' : ''}`}>
+                              {st.title}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Custom hover quick action board footer */}
+                    <div className="mt-5 flex items-center justify-between border-t border-black/5 pt-2 text-[9px] opacity-75">
+                      <span className="font-mono uppercase tracking-wider text-[8px] opacity-60">
+                        {todo.category}
+                      </span>
+
+                      {/* Tool overlay */}
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => updateTodo(todo.id, { isFavorite: !todo.isFavorite })}
+                          className={`rounded p-1 hover:bg-black/5 ${todo.isFavorite ? 'text-amber-500' : ''}`}
+                        >
+                          <Star className="h-3 w-3 fill-current" />
+                        </button>
+                        <button 
+                          onClick={() => updateTodo(todo.id, { isPinned: !todo.isPinned })}
+                          className={`rounded p-1 hover:bg-black/5 ${todo.isPinned ? 'text-blue-500' : ''}`}
+                        >
+                          <Pin className="h-3 w-3 fill-current" />
+                        </button>
+                        <button 
+                          onClick={() => duplicateTodo(todo.id)}
+                          className="rounded p-1 hover:bg-black/5"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                        <button 
+                          onClick={() => deleteTodo(todo.id)}
+                          className="rounded p-1 hover:bg-black/5 hover:text-rose-600"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+
+        {/* Empty state corkboard */}
+        {filteredTodos.length === 0 && (
+          <div className="flex flex-col items-center justify-center w-full py-16 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.02] border border-white/5 text-zinc-500 mb-4">
+              <Plus className="h-6 w-6" />
+            </div>
+            <h4 className="font-display text-sm font-bold text-white">Empty Corkboard</h4>
+            <p className="text-xs text-zinc-500 max-w-xs mt-1">
+              Create a sticky note above, or type some natural language prompt to let AI schedule.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* CONFETTI SVG PARTICLE OVERLAY */}
+      {confetti.map((c) => (
+        <motion.div
+          key={c.id}
+          initial={{ x: c.x, y: c.y, scale: 1, opacity: 1 }}
+          animate={{ 
+            y: c.y + (Math.random() * 120 - 60), 
+            x: c.x + (Math.random() * 120 - 60), 
+            scale: 0.1, 
+            opacity: 0 
+          }}
+          transition={{ duration: 1 }}
+          className="fixed z-50 h-2 w-2 rounded-full pointer-events-none"
+          style={{ backgroundColor: c.color }}
+        />
+      ))}
+
+      {/* CREATION FORM DIALOG MODAL */}
+      {isFormOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setIsFormOpen(false)} />
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#16161c] p-6 shadow-2xl z-10"
+          >
+            <h3 className="font-display text-lg font-bold text-white mb-4">New Sticky Note</h3>
+
+            <form onSubmit={handleFormSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider font-mono text-zinc-500">Note Title</label>
+                <input 
+                  type="text" 
+                  required
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="Task title..."
+                  className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-4 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider font-mono text-zinc-500">Description</label>
+                <textarea 
+                  value={formDesc}
+                  onChange={(e) => setFormDesc(e.target.value)}
+                  placeholder="Extra details..."
+                  rows={2}
+                  className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-4 py-2 text-xs text-white outline-none focus:border-indigo-500 resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wider font-mono text-zinc-500">Priority</label>
+                  <select 
+                    value={formPriority}
+                    onChange={(e) => setFormPriority(e.target.value as Priority)}
+                    className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase tracking-wider font-mono text-zinc-500">Category</label>
+                  <select 
+                    value={formCategory}
+                    onChange={(e) => setFormCategory(e.target.value)}
+                    className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-3.5 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="Personal">Personal</option>
+                    <option value="Work">Work</option>
+                    <option value="Health">Health</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Urgent">Urgent</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Due time */}
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider font-mono text-zinc-500">Due Time (Optional)</label>
+                <input 
+                  type="time" 
+                  value={formDueTime}
+                  onChange={(e) => setFormDueTime(e.target.value)}
+                  className="w-full rounded-xl border border-white/5 bg-[#0c0c0e] px-4 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Paper color presets selector */}
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider font-mono text-zinc-500">Sticky Color Theme</label>
+                <div className="flex gap-2 pt-1">
+                  {['yellow', 'blue', 'green', 'pink', 'purple', 'orange', 'mint', 'cream'].map(color => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setFormColor(color)}
+                      className={`h-5 w-5 rounded-full border ${
+                        formColor === color ? 'ring-2 ring-indigo-500 border-white' : 'border-white/10'
+                      }`}
+                      style={{ 
+                        backgroundColor: color === 'yellow' ? '#fde047' : 
+                                        color === 'blue' ? '#93c5fd' : 
+                                        color === 'green' ? '#86efac' : 
+                                        color === 'pink' ? '#f9a8d4' : 
+                                        color === 'purple' ? '#d8b4fe' : 
+                                        color === 'orange' ? '#fdba74' : 
+                                        color === 'mint' ? '#99f6e4' : '#fafaf9' 
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Subtasks form builder */}
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider font-mono text-zinc-500">Subtasks</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={newSubtask}
+                    onChange={(e) => setNewSubtask(e.target.value)}
+                    placeholder="Subtask name..."
+                    className="flex-1 rounded-xl border border-white/5 bg-[#0c0c0e] px-4 py-2 text-xs text-white outline-none focus:border-indigo-500"
+                  />
+                  <button 
+                    type="button" 
+                    onClick={addFormSubtask}
+                    className="rounded-xl border border-white/5 bg-zinc-800 px-3 py-2 text-xs text-zinc-300 hover:text-white"
+                  >
+                    Add
+                  </button>
+                </div>
+                {formSubtasks.length > 0 && (
+                  <div className="mt-2 space-y-1 max-h-24 overflow-y-auto">
+                    {formSubtasks.map((st, idx) => (
+                      <div key={idx} className="flex items-center justify-between rounded bg-[#0c0c0e] px-2 py-1 text-xs">
+                        <span className="text-zinc-400">{st}</span>
+                        <button 
+                           type="button" 
+                          onClick={() => removeFormSubtask(idx)}
+                          className="text-rose-500 text-[10px]"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <button 
+                  type="button" 
+                  onClick={() => setIsFormOpen(false)}
+                  className="rounded-xl border border-white/5 bg-zinc-900 px-4 py-2.5 font-display text-xs text-zinc-400 hover:text-white"
+                >
+                  Discard
+                </button>
+                <button 
+                  type="submit"
+                  className="rounded-xl bg-indigo-500 px-4 py-2.5 font-display text-xs font-bold text-white hover:bg-indigo-600"
+                >
+                  Pin to Board
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </div>
+  );
+};

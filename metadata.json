@@ -1,0 +1,8 @@
+{
+  "name": "StickyBoard",
+  "description": "An exquisite, tactile Todo SaaS combining the focus of real-life sticky notes with time-blocked daily timelines, deep analytics, and AI assistance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

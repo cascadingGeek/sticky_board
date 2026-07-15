@@ -1,0 +1,178 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter", "Space Grotesk", sans-serif;
+  --font-handwritten: "Caveat", "Kalam", cursive;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+@layer utilities {
+  /* Paper textures and physical corkboards - Immersive bg-dots style */
+  .corkboard-grid {
+    background-color: #0F0F11;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 24px 24px;
+    position: relative;
+  }
+
+  .bg-dots {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .gradient-glow {
+    background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
+  }
+
+  .sidebar-glass {
+    background: rgba(15, 15, 17, 0.85);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* Stat progress ring */
+  .stat-ring {
+    background: conic-gradient(#6366f1 78%, transparent 0);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Paper Curl Shadows for highly realistic 3D appearance */
+  .shadow-sticky {
+    box-shadow: 
+      0 10px 15px -3px rgba(0, 0, 0, 0.4), 
+      0 4px 6px -2px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .shadow-sticky-hover {
+    box-shadow: 
+      0 20px 25px -5px rgba(0, 0, 0, 0.5), 
+      0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Custom paper gradient overlays for light/dark notes */
+  .sticky-yellow {
+    background: linear-gradient(135deg, #fef08a 0%, #fde047 100%);
+    color: #422006;
+  }
+  .sticky-blue {
+    background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%);
+    color: #1e3a8a;
+  }
+  .sticky-green {
+    background: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%);
+    color: #14532d;
+  }
+  .sticky-pink {
+    background: linear-gradient(135deg, #fbcfe8 0%, #f9a8d4 100%);
+    color: #701a75;
+  }
+  .sticky-purple {
+    background: linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 100%);
+    color: #581c87;
+  }
+  .sticky-orange {
+    background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+    color: #7c2d12;
+  }
+  .sticky-mint {
+    background: linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%);
+    color: #115e59;
+  }
+  .sticky-cream {
+    background: linear-gradient(135deg, #fafaf9 0%, #f5f5f4 100%);
+    color: #292524;
+  }
+
+  /* Light Theme paper gradients */
+  .sticky-yellow-dark {
+    background: linear-gradient(135deg, #fef08a 0%, #fde047 100%);
+    color: #422006;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  /* Frosted Glass */
+  .backdrop-blur-sticky {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Folded Corner clip path */
+  .folded-corner {
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+  }
+
+  .corner-fold {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 16px;
+    height: 16px;
+    background: rgba(0, 0, 0, 0.08);
+    border-bottom-left-radius: 4px;
+    box-shadow: -1px 1px 2px rgba(0,0,0,0.15);
+  }
+}
+
+/* Base custom font mappings fallback to Tailwind classes */
+.font-handwritten {
+  font-family: "Kalam", "Caveat", cursive;
+}
+.font-display {
+  font-family: "Space Grotesk", sans-serif;
+}
+
+/* Animations */
+@keyframes pushpin-drop {
+  0% {
+    transform: translateY(-200px) scale(1.5) rotate(-15deg);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(0) scale(1) rotate(-15deg);
+    opacity: 1;
+  }
+  80% {
+    transform: translateY(-8px) scale(1.05) rotate(-10deg);
+  }
+  100% {
+    transform: translateY(0) scale(1) rotate(-12deg);
+  }
+}
+
+.animate-pin-drop {
+  animation: pushpin-drop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes pushpin-pop {
+  0% {
+    transform: translateY(0) scale(1) rotate(-12deg);
+  }
+  100% {
+    transform: translateY(-80px) scale(0.6) rotate(30deg);
+    opacity: 0;
+  }
+}
+
+.animate-pin-pop {
+  animation: pushpin-pop 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045) forwards;
+}
