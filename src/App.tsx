@@ -1,58 +1,106 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { StickyBoardProvider, useStickyBoard } from './lib/StickyBoardContext';
-import { LandingPage } from './components/LandingPage';
-import { Sidebar } from './components/Sidebar';
-import { DailyBoard } from './components/DailyBoard';
-import { CalendarView } from './components/CalendarView';
-import { AnalyticsView } from './components/AnalyticsView';
-import { FocusView } from './components/FocusView';
-import { SettingsView } from './components/SettingsView';
-import { AuthModal } from './components/AuthModal';
-import { CommandPalette } from './components/CommandPalette';
+import { offsetDateStr } from './lib/dates';
+import { Board } from './components/Board';
+import { CalendarDrawer } from './components/CalendarDrawer';
+import { NoteEditor } from './components/NoteEditor';
+import { SearchBox } from './components/SearchBox';
+import { SettingsDrawer } from './components/SettingsDrawer';
+import { Toasts } from './components/Toasts';
+import { TopBar } from './components/TopBar';
+import { TrashDrawer } from './components/TrashDrawer';
+import { WelcomeScreen } from './components/WelcomeScreen';
+
+const isTyping = (el: EventTarget | null) => {
+  const t = el as HTMLElement | null;
+  return !!t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName));
+};
 
 function AppContent() {
-  const { user, activeTab, isLoading } = useStickyBoard();
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const {
+    loaded,
+    meta,
+    notes,
+    drawer,
+    openDrawer,
+    searchOpen,
+    setSearchOpen,
+    editorId,
+    setEditorId,
+    currentDateStr,
+    setCurrentDateStr,
+    today,
+    requestNewNote,
+  } = useStickyBoard();
 
-  if (isLoading) {
+  const editing = editorId ? notes.find(n => n.id === editorId && !n.deletedAt) : undefined;
+  const { toast } = useStickyBoard();
+
+  // The note being edited was removed elsewhere: close the editor.
+  useEffect(() => {
+    if (editorId && loaded && !editing) {
+      setEditorId(null);
+      toast('This note was removed.');
+    }
+  }, [editorId, editing, loaded, setEditorId, toast]);
+
+  // Global keys. Esc closes the topmost thing: editor, then search, then a drawer
+  // (confirm boxes and drafts handle their own Esc first).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(!searchOpen);
+        return;
+      }
+      if (e.key === 'Escape') {
+        if (editorId) setEditorId(null);
+        else if (searchOpen) setSearchOpen(false);
+        else if (drawer) openDrawer(null);
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target) || editorId || drawer) return;
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        setSearchOpen(false);
+        requestNewNote();
+      } else if (e.key === 't' || e.key === 'T') {
+        setCurrentDateStr(today);
+      } else if (e.key === 'ArrowLeft') {
+        setCurrentDateStr(offsetDateStr(currentDateStr, -1));
+      } else if (e.key === 'ArrowRight') {
+        setCurrentDateStr(offsetDateStr(currentDateStr, 1));
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [searchOpen, setSearchOpen, editorId, setEditorId, drawer, openDrawer, currentDateStr, setCurrentDateStr, today, requestNewNote]);
+
+  if (!loaded) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-app text-ink">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-accent border-t-transparent" />
-          <span className="font-display text-xs font-semibold tracking-wider text-ink-faint uppercase">Loading board...</span>
-        </div>
+      <div className="board-surface min-h-screen" aria-busy="true">
+        <p role="status" className="sr-only">
+          Loading your board
+        </p>
       </div>
     );
   }
+  if (!meta.onboardedAt) return <WelcomeScreen />;
+
+  const overlayOpen = !!drawer || !!editing;
 
   return (
-    <div className="min-h-screen bg-app text-ink font-sans">
-      {!user ? (
-        // If not logged in, show the gorgeous immersive landing page
-        <LandingPage onStartAuth={() => setIsAuthOpen(true)} />
-      ) : (
-        // Full dashboard layout
-        <div className="flex">
-          {/* Sidebar Navigation */}
-          <Sidebar />
-
-          {/* Main Workspace Frame */}
-          <main className="flex-1 min-h-screen bg-app relative">
-            {/* Direct dynamic layout loading */}
-            {activeTab === 'board' && <DailyBoard />}
-            {activeTab === 'calendar' && <CalendarView />}
-            {activeTab === 'analytics' && <AnalyticsView />}
-            {activeTab === 'focus' && <FocusView />}
-            {activeTab === 'settings' && <SettingsView />}
-          </main>
-        </div>
-      )}
-
-      {/* Floating Auth Modal overlay */}
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
-
-      {/* ⌘K command palette + global keyboard shortcuts (signed-in only) */}
-      <CommandPalette />
+    <div className="board-surface min-h-screen text-ink">
+      <div inert={overlayOpen}>
+        <TopBar />
+      </div>
+      <Board inert={overlayOpen} />
+      {searchOpen && <SearchBox />}
+      {drawer === 'calendar' && <CalendarDrawer />}
+      {drawer === 'trash' && <TrashDrawer />}
+      {drawer === 'settings' && <SettingsDrawer />}
+      {editing && <NoteEditor key={editing.id} note={editing} />}
+      <Toasts />
     </div>
   );
 }
@@ -64,4 +112,3 @@ export default function App() {
     </StickyBoardProvider>
   );
 }
-

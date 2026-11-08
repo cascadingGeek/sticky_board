@@ -1,8 +1,11 @@
 /**
- * StickyBoard - Global TypeScript Type Definitions
+ * Sticky Board domain types (spec 0001, cross child contract).
+ * Notes live in chrome.storage.local (one key per note), meta in
+ * chrome.storage.local under `meta`, settings in chrome.storage.sync.
  */
 
-export type Priority = 'low' | 'medium' | 'high' | 'critical';
+export const NOTE_COLORS = ['yellow', 'blue', 'green', 'pink', 'purple', 'orange', 'mint', 'cream'] as const;
+export type NoteColor = (typeof NOTE_COLORS)[number];
 
 export interface Subtask {
   id: string;
@@ -10,66 +13,64 @@ export interface Subtask {
   isCompleted: boolean;
 }
 
-export interface UserPreferences {
-  theme: 'dark' | 'light';
-  accentColor: string; // Tailwind color class or hex, e.g. '#3b82f6'
-  handwritingFont: boolean; // toggle handwriting style for sticky note contents
-  soundEnabled: boolean; // satisficing interface sounds
-  timezone: string; // IANA Timezone, e.g. 'America/New_York'
-  startOfWeek: 0 | 1; // 0 = Sunday, 1 = Monday
-  defaultPriority: Priority;
-  stickyColorMode: 'auto' | 'manual'; // Auto-assigns colors based on priority/category or manual selection
-}
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  createdAt: string;
-  preferences: UserPreferences;
-}
-
-export interface Todo {
-  id: string;
-  userId: string;
+export interface NoteSource {
+  url: string;
   title: string;
-  description: string;
+}
+
+export interface Note {
+  id: string;
+  title: string; // 1 to 200 chars
+  description: string; // up to 5,000 chars
   isCompleted: boolean;
-  dateStr: string; // YYYY-MM-DD in the user's local timezone
-  priority: Priority;
-  category: string; // 'Work', 'Personal', 'Urgent', etc.
-  noteColor: string; // Color preset: yellow, blue, green, pink, purple, orange, mint, cream
-  subtasks: Subtask[];
+  dateStr: string; // YYYY-MM-DD in the resolved timezone
+  noteColor: NoteColor;
+  subtasks: Subtask[]; // max 50
   dueTime?: string; // HH:MM
-  estimatedMinutes?: number;
-  isPinned: boolean;
-  isFavorite: boolean;
-  positionX?: number;
-  positionY?: number;
+  positionX: number;
+  positionY: number;
+  z: number; // stacking order, raised only on create or move
+  remind: boolean;
+  remindedAt?: string; // written only by the background worker
+  source?: NoteSource;
+  carriedFromId?: string;
+  carriedToDate?: string;
+  deletedAt?: string; // set means it is in Trash
   createdAt: string;
   updatedAt: string;
 }
 
-export interface ActivityLog {
-  id: string;
-  userId: string;
-  action: string; // 'create_todo', 'complete_todo', 'delete_todo', etc.
-  details: string;
-  createdAt: string;
+export interface Meta {
+  schemaVersion: number;
+  onboardedAt?: string;
+  lastCarryOverPromptDate?: string;
 }
 
-export interface StreakStats {
-  currentStreak: number;
-  longestStreak: number;
-  lastCompletedDate?: string; // YYYY-MM-DD
+export const THEMES = ['dark', 'light', 'midnight', 'cork', 'system'] as const;
+export type ThemeSetting = (typeof THEMES)[number];
+export type ResolvedTheme = Exclude<ThemeSetting, 'system'>;
+
+export interface Settings {
+  theme: ThemeSetting;
+  handwritingFont: boolean;
+  soundEnabled: boolean;
+  timezone: string; // 'auto' or an IANA zone the user picked
+  startOfWeek: 0 | 1;
 }
 
-export interface DashboardStats {
-  completionRate: number; // percentage
-  totalCompleted: number;
-  totalPending: number;
-  streak: StreakStats;
-  categoryDistribution: { name: string; value: number; color: string }[];
-  weeklyActivity: { day: string; completed: number; pending: number }[]; // Mon-Sun
-  heatmap: Record<string, number>; // dateStr -> count
-}
+export const DEFAULT_SETTINGS: Settings = {
+  theme: 'dark',
+  handwritingFont: true,
+  soundEnabled: true,
+  timezone: 'auto',
+  startOfWeek: 0,
+};
+
+export const SCHEMA_VERSION = 1;
+
+export const NOTE_SIZE = 220;
+export const NOTE_GAP = 24;
+export const TITLE_MAX = 200;
+export const DESCRIPTION_MAX = 5000;
+export const SUBTASKS_MAX = 50;
+export const TRASH_DAYS = 30;
