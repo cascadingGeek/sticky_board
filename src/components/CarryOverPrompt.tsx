@@ -6,6 +6,7 @@ import { meta as metaStore, notes as noteStore } from '../lib/storage';
 import type { Note } from '../types';
 
 interface Offer {
+  forDay: string; // the "today" this offer was made for
   lastDay: string;
   candidates: Note[];
 }
@@ -25,7 +26,7 @@ const findOffer = (today: string): Promise<Offer | null> =>
       .filter(n => n.dateStr === lastDay && !n.isCompleted && !n.carriedToDate)
       .sort((a, b) => a.z - b.z);
     await metaStore.patch({ lastCarryOverPromptDate: today });
-    return candidates.length ? { lastDay, candidates } : null;
+    return candidates.length ? { forDay: today, lastDay, candidates } : null;
   });
 
 /** The morning card offering last active day's unfinished notes as copies. */
@@ -50,7 +51,8 @@ export function CarryOverPrompt() {
     };
   }, [loaded, meta.onboardedAt, today, currentDateStr]);
 
-  if (!offer || currentDateStr !== today) return null;
+  // An offer made for another day (time zone change, midnight) is stale: never show it.
+  if (!offer || offer.forDay !== today || currentDateStr !== today) return null;
 
   const carry = async (ids: string[]) => {
     setBusy(true);

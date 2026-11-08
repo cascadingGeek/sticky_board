@@ -25,7 +25,7 @@ Spec: [0001](../specs/0001-chrome-extension-mvp/index.md) · code in `src/` (WXT
   - [x] Data safety: trash with restore and purge, export and import (AC-4, AC-5)
   - [x] Background: right click capture, reminders, toolbar icon and shortcut, store ready zip (AC-16, AC-17, AC-18, AC-19, AC-20, AC-21)
 - [ ] Verify it: /check verify chrome extension first release
-- [ ] Test it: /test chrome extension first release
+- [x] Test it: /test chrome extension first release
 
 ## Deferred
 

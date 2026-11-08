@@ -39,9 +39,12 @@ const enqueue = <T>(id: string, task: () => Promise<T>): Promise<T> => {
   const prev = queues.get(id) ?? Promise.resolve();
   const run = prev.catch(() => undefined).then(task);
   queues.set(id, run);
-  run.finally(() => {
-    if (queues.get(id) === run) queues.delete(id);
-  });
+  // Cleanup only. The caller handles `run`'s error; this copy must not report it again.
+  run
+    .finally(() => {
+      if (queues.get(id) === run) queues.delete(id);
+    })
+    .catch(() => undefined);
   return run;
 };
 
