@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
 import { shortDay } from '../lib/dates';
+import { siteOf } from '../lib/pageNotes';
 import { TRASH_DAYS } from '../types';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Drawer } from './Drawer';
@@ -9,13 +10,13 @@ const DAY = 24 * 60 * 60 * 1000;
 
 /** Trashed notes, newest deleted first, with Restore and Delete forever. */
 export function TrashDrawer() {
-  const { notes, restoreNote, deleteForever, openDrawer } = useStickyBoard();
+  const { allNotes, restoreNote, deleteForever, openDrawer } = useStickyBoard();
   const [confirm, setConfirm] = useState<{ ids: string[]; title: string; message: string; label: string } | null>(null);
   const [now] = useState(() => Date.now());
 
   const trashed = useMemo(
-    () => notes.filter(n => n.deletedAt).sort((a, b) => (a.deletedAt! < b.deletedAt! ? 1 : -1)),
-    [notes],
+    () => allNotes.filter(n => n.deletedAt).sort((a, b) => (a.deletedAt! < b.deletedAt! ? 1 : -1)),
+    [allNotes],
   );
 
   return (
@@ -56,7 +57,7 @@ export function TrashDrawer() {
                   <span aria-hidden="true" className={`paper-${n.noteColor} h-7 w-7 flex-none -rotate-3 rounded`} />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-sm font-semibold">{n.title}</span>
-                    <span className="text-xs text-ink-faint">From {shortDay(n.dateStr)}</span>
+                    <span className="truncate text-xs text-ink-faint">{n.page ? `On ${siteOf(n.page.url)}` : `From ${shortDay(n.dateStr)}`}</span>
                   </span>
                   <span
                     className={`rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ${

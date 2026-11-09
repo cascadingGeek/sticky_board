@@ -10,7 +10,7 @@ const TOP_BAR = 64;
 
 /** The full screen freeform board for the day being viewed. */
 export function Board({ inert }: { inert: boolean }) {
-  const { notes, currentDateStr, newNoteSignal, createNote } = useStickyBoard();
+  const { notes, allNotes, currentDateStr, newNoteSignal, createNote } = useStickyBoard();
   const boardRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(1200);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -62,13 +62,13 @@ export function Board({ inert }: { inert: boolean }) {
     const top = Math.max(0, window.scrollY - TOP_BAR);
     const pos = firstFreeSpot(dayNotes, { top, width });
     draftKey.current += 1;
-    setDraft({ key: draftKey.current, x: pos.x, y: pos.y, dateStr: currentDateStr, color: pickColor(notes), title: '', description: '', saving: false });
+    setDraft({ key: draftKey.current, x: pos.x, y: pos.y, dateStr: currentDateStr, color: pickColor(allNotes), title: '', description: '', saving: false });
     setFocusSignal(s => s + 1);
     const bottom = TOP_BAR + pos.y + NOTE_SIZE;
     if (pos.y + TOP_BAR < window.scrollY || bottom > window.scrollY + window.innerHeight) {
       window.scrollTo({ top: Math.max(0, pos.y + TOP_BAR - 80), behavior: 'smooth' });
     }
-  }, [dayNotes, width, currentDateStr, notes]);
+  }, [dayNotes, width, currentDateStr, allNotes]);
 
   // "+" or N: refocus an empty draft, save a titled one first, then start a new one.
   const lastSignal = useRef(newNoteSignal);

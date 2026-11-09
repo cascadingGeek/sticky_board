@@ -1,5 +1,6 @@
 import { isDateStr, isTimeStr } from '../dates';
 import { isHttpUrl } from '../board';
+import { clampHeight, clampWidth, normalizePageUrl, pageTitleFrom } from '../pageNotes';
 import {
   DEFAULT_SETTINGS,
   DESCRIPTION_MAX,
@@ -57,7 +58,21 @@ export const parseNote = (raw: unknown): (Omit<Note, 'positionX' | 'positionY' |
     source = { url: s.url, title: typeof s.title === 'string' ? s.title : '' };
   }
 
-  return {
+  // Page notes (spec 0002): an http(s) address without #part, size and collapsed state.
+  let page: Note['page'];
+  if (r.page !== undefined) {
+    const pg = r.page as Record<string, unknown> | null;
+    const url = pg && typeof pg.url === 'string' ? normalizePageUrl(pg.url) : null;
+    if (!url) return null;
+    page = { url, title: pageTitleFrom(typeof pg!.title === 'string' ? pg!.title : '') };
+  }
+  if (page) {
+    if (r.width !== undefined && !isNum(r.width)) return null;
+    if (r.height !== undefined && !isNum(r.height)) return null;
+    if (r.collapsed !== undefined && typeof r.collapsed !== 'boolean') return null;
+  }
+
+  const base = {
     id: r.id,
     title: r.title,
     description,
@@ -77,6 +92,17 @@ export const parseNote = (raw: unknown): (Omit<Note, 'positionX' | 'positionY' |
     deletedAt: r.deletedAt as string | undefined,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
+  };
+  if (!page) return base;
+  // Board only fields never ride along on a page note.
+  const { dueTime: _d, remindedAt: _r, source: _s, carriedFromId: _cf, carriedToDate: _ct, ...rest } = base;
+  return {
+    ...rest,
+    remind: false,
+    page,
+    ...(r.width !== undefined ? { width: clampWidth(r.width as number) } : {}),
+    ...(r.height !== undefined ? { height: clampHeight(r.height as number) } : {}),
+    ...(r.collapsed === true ? { collapsed: true } : {}),
   };
 };
 

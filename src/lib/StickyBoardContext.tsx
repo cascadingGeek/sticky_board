@@ -6,10 +6,18 @@
 import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { isDateStr, msUntilNextMidnight, resolveTz, todayInTz } from './dates';
 import { playSound, type SoundType } from './sounds';
-import { createNote as storageCreate, meta as metaStore, notes as noteStore, settings as settingsStore, type NewNoteInput } from './storage';
+import { boardNotes } from './pageNotes';
+import {
+  createNote as storageCreate,
+  meta as metaStore,
+  notes as noteStore,
+  restoreNote as storageRestore,
+  settings as settingsStore,
+  type NewNoteInput,
+} from './storage';
 import { DEFAULT_SETTINGS, type Meta, type Note, type ResolvedTheme, type Settings, type ThemeSetting } from '../types';
 
-export type DrawerName = 'calendar' | 'trash' | 'settings';
+export type DrawerName = 'calendar' | 'trash' | 'settings' | 'pages';
 export interface Toast {
   id: number;
   message: string;
@@ -19,7 +27,10 @@ export interface Toast {
 
 interface StickyBoardContextType {
   loaded: boolean;
+  /** Day board notes only (page notes are never on the board, spec 0002). */
   notes: Note[];
+  /** Every note, board and page: for search, Trash, the Pages drawer and Settings. */
+  allNotes: Note[];
   settings: Settings;
   meta: Meta;
   tz: string;
@@ -292,14 +303,31 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (ok && note) {
       toast(`“${note.title}” moved to Trash`, 'info', {
         label: 'Undo',
-        run: () => void patchNote(id, { deletedAt: undefined }),
+        run: () => void restoreRef.current(id),
       });
     }
   }, [patchNote, sound, toast]);
 
+  /** Takes a note out of Trash; a full page (50 notes) refuses it (spec 0002 AC-10). */
   const restoreNote = useCallback(async (id: string) => {
-    await patchNote(id, { deletedAt: undefined });
-  }, [patchNote]);
+    try {
+      const r = await storageRestore(id);
+      if (r === 'limit') {
+        toast('This page already has 50 notes.', 'error');
+        return;
+      }
+      if (r) {
+        lastSaved.current.set(id, r);
+        setNoteMap(prev => new Map(prev).set(id, r));
+      }
+    } catch {
+      toast("Couldn't restore that note. Please try again.", 'error');
+    }
+  }, [toast]);
+  const restoreRef = useRef(restoreNote);
+  useLayoutEffect(() => {
+    restoreRef.current = restoreNote;
+  }, [restoreNote]);
 
   const deleteForever = useCallback(async (ids: string[]) => {
     try {
@@ -329,11 +357,13 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setSearchOpen(open);
   }, []);
 
-  const notes = useMemo(() => [...noteMap.values()], [noteMap]);
+  const allNotes = useMemo(() => [...noteMap.values()], [noteMap]);
+  const notes = useMemo(() => boardNotes(allNotes), [allNotes]);
 
   const value: StickyBoardContextType = {
     loaded,
     notes,
+    allNotes,
     settings,
     meta,
     tz,

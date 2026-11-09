@@ -6,7 +6,8 @@
  * Meta: `meta` in chrome.storage.local. Settings: `settings` in chrome.storage.sync.
  */
 import { firstFreeSpot, isActive, nextZ, pickColor, type Viewport } from '../board';
-import { DEFAULT_SETTINGS, SCHEMA_VERSION, type Meta, type Note, type NoteColor, type Settings } from '../../types';
+import { boardNotes, nextPageZ, notesOnPage } from '../pageNotes';
+import { DEFAULT_SETTINGS, PAGE_NOTE_LIMIT, SCHEMA_VERSION, type Meta, type Note, type NoteColor, type PageRef, type Settings } from '../../types';
 import { parseNote, parseSettings } from './validate';
 
 const NOTE_PREFIX = 'note:';
@@ -129,7 +130,8 @@ export interface NewNoteInput {
 export const createNote = (input: NewNoteInput): Promise<Note> =>
   navigator.locks.request('note-create', async () => {
     const all = await notes.getAll();
-    const day = all.filter(n => n.dateStr === input.dateStr && isActive(n));
+    const board = boardNotes(all);
+    const day = board.filter(n => n.dateStr === input.dateStr && isActive(n));
     const pos = input.position ?? firstFreeSpot(day, input.viewport ?? { top: 0, width: 1280 });
     const ts = nowIso();
     const note: Note = {
@@ -142,7 +144,7 @@ export const createNote = (input: NewNoteInput): Promise<Note> =>
       subtasks: input.subtasks ?? [],
       positionX: Math.round(pos.x),
       positionY: Math.round(pos.y),
-      z: nextZ(all, input.dateStr),
+      z: nextZ(board, input.dateStr),
       remind: false,
       ...(input.source ? { source: input.source } : {}),
       createdAt: ts,
@@ -150,6 +152,56 @@ export const createNote = (input: NewNoteInput): Promise<Note> =>
     };
     await chrome.storage.local.set({ [noteKey(note.id)]: note });
     return note;
+  });
+
+export interface NewPageNoteInput {
+  title: string;
+  page: PageRef; // built by the background from the sender tab, never from the page's message
+  x: number;
+  y: number;
+  dateStr: string;
+  preferredColor?: NoteColor;
+}
+
+/** Creates a page note, or refuses with 'limit' when the page already has 50 active notes (AC-18). */
+export const createPageNote = (input: NewPageNoteInput): Promise<Note | 'limit'> =>
+  navigator.locks.request('note-create', async () => {
+    const all = await notes.getAll();
+    if (notesOnPage(all, input.page.url).length >= PAGE_NOTE_LIMIT) return 'limit';
+    const ts = nowIso();
+    const note: Note = {
+      id: crypto.randomUUID(),
+      title: input.title,
+      description: '',
+      isCompleted: false,
+      dateStr: input.dateStr,
+      noteColor: pickColor(all, input.preferredColor),
+      subtasks: [],
+      positionX: Math.round(input.x),
+      positionY: Math.round(input.y),
+      z: nextPageZ(all, input.page.url),
+      remind: false,
+      page: input.page,
+      createdAt: ts,
+      updatedAt: ts,
+    };
+    await chrome.storage.local.set({ [noteKey(note.id)]: note });
+    return note;
+  });
+
+/**
+ * Takes a note out of Trash. A page note goes back only when its page has
+ * room (AC-10); the check runs in the same `note-create` lock as creating.
+ */
+export const restoreNote = (id: string): Promise<Note | 'limit' | null> =>
+  navigator.locks.request('note-create', async () => {
+    const note = await notes.get(id);
+    if (!note) return null;
+    if (note.page && note.deletedAt) {
+      const all = await notes.getAll();
+      if (notesOnPage(all, note.page.url).length >= PAGE_NOTE_LIMIT) return 'limit';
+    }
+    return notes.patch(id, { deletedAt: undefined });
   });
 
 export const meta = {

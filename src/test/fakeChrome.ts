@@ -62,6 +62,8 @@ export const installFakeChrome = () => {
   const sync = makeArea('sync', listeners);
   const alarms = new Map<string, { name: string; scheduledTime: number }>();
   const notifications = new Map<string, chrome.notifications.NotificationOptions>();
+  const granted = new Set<string>();
+  const registered = new Map<string, chrome.scripting.RegisteredContentScript>();
 
   const fake = {
     storage: {
@@ -88,7 +90,8 @@ export const installFakeChrome = () => {
       onClicked: makeEvent<[string]>(),
     },
     runtime: {
-      getURL: (path: string) => `chrome-extension://test-id/${path}`,
+      id: 'test-id',
+      getURL: (path: string) => `chrome-extension://test-id/${path.replace(/^\//, '')}`,
       onMessage: makeEvent<[unknown]>(),
       onInstalled: makeEvent<[{ reason: string }]>(),
       onStartup: makeEvent<[]>(),
@@ -104,9 +107,41 @@ export const installFakeChrome = () => {
     tabs: {
       create: vi.fn(async () => ({})),
       update: vi.fn(async () => ({})),
-      sendMessage: vi.fn(async () => undefined),
+      get: vi.fn(async (id: number) => ({ id, status: 'complete' })),
+      sendMessage: vi.fn(async (..._args: unknown[]): Promise<unknown> => undefined),
     },
-    windows: { update: vi.fn(async () => ({})) },
+    windows: { update: vi.fn(async () => ({})), create: vi.fn(async () => ({})) },
+    // Site access (spec 0002). `granted` holds the origins Chrome has allowed.
+    permissions: {
+      getAll: vi.fn(async () => ({ origins: [...granted], permissions: [] })),
+      contains: vi.fn(async ({ origins = [] }: { origins?: string[] }) =>
+        origins.every(o => granted.has(o) || granted.has(o.replace(/^https?:/, '*:')))),
+      request: vi.fn(async ({ origins = [] }: { origins?: string[] }) => {
+        origins.forEach(o => granted.add(o));
+        return true;
+      }),
+      remove: vi.fn(async ({ origins = [] }: { origins?: string[] }) => {
+        origins.forEach(o => granted.delete(o));
+        return true;
+      }),
+      onAdded: makeEvent<[unknown]>(),
+      onRemoved: makeEvent<[unknown]>(),
+    },
+    scripting: {
+      getRegisteredContentScripts: vi.fn(async ({ ids }: { ids?: string[] } = {}) =>
+        [...registered.values()].filter(r => !ids || ids.includes(r.id))),
+      registerContentScripts: vi.fn(async (list: chrome.scripting.RegisteredContentScript[]) => {
+        list.forEach(r => registered.set(r.id, r));
+      }),
+      updateContentScripts: vi.fn(async (list: chrome.scripting.RegisteredContentScript[]) => {
+        list.forEach(r => registered.set(r.id, { ...registered.get(r.id)!, ...r }));
+      }),
+      unregisterContentScripts: vi.fn(async ({ ids }: { ids?: string[] } = {}) => {
+        (ids ?? [...registered.keys()]).forEach(id => registered.delete(id));
+      }),
+      executeScript: vi.fn(async (..._args: unknown[]): Promise<unknown[]> => []),
+    },
+    commands: { onCommand: makeEvent<[string, { id?: number; url?: string } | undefined]>() },
   };
 
   // navigator.locks: run callbacks for the same name one at a time, like the browser does.
@@ -123,7 +158,7 @@ export const installFakeChrome = () => {
   vi.stubGlobal('chrome', fake);
   Object.defineProperty(navigator, 'locks', { value: locks, configurable: true });
 
-  return { local: local.data, sync: sync.data, alarms, notifications, fake };
+  return { local: local.data, sync: sync.data, alarms, notifications, granted, registered, fake };
 };
 
 export type FakeChrome = ReturnType<typeof installFakeChrome>;

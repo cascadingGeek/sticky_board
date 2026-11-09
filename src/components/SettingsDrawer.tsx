@@ -6,6 +6,7 @@ import { todayInTz } from '../lib/dates';
 import { THEME_LABELS, THEME_SWATCH } from '../lib/themes';
 import { THEMES } from '../types';
 import { Drawer } from './Drawer';
+import { SitesSection } from './SitesSection';
 
 const sectionTitle = 'text-xs font-semibold tracking-[0.06em] text-ink-faint uppercase';
 
@@ -29,7 +30,7 @@ function Switch({ label, checked, onChange }: { label: string; checked: boolean;
 
 /** Settings: theme, board, days, your data, shortcut and privacy. */
 export function SettingsDrawer() {
-  const { settings, updateSettings, openDrawer, tz, notes } = useStickyBoard();
+  const { settings, updateSettings, openDrawer, tz, allNotes: notes } = useStickyBoard();
   const fileRef = useRef<HTMLInputElement>(null);
   const [restoreSettings, setRestoreSettings] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -202,9 +203,12 @@ export function SettingsDrawer() {
           )}
         </section>
 
+        <SitesSection notes={notes} />
+
         <section aria-label="Shortcut and privacy" className="flex flex-col gap-2.5 border-t border-line pt-4 text-[13px] leading-relaxed text-ink-faint">
           <p>
-            Open the board from anywhere with <kbd className="rounded-md bg-raise px-1.5 py-0.5 font-mono text-xs text-ink">Alt+Shift+S</kbd>.{' '}
+            Open the board from anywhere with <kbd className="rounded-md bg-raise px-1.5 py-0.5 font-mono text-xs text-ink">Alt+Shift+S</kbd>, and pin a
+            note on a web page with <kbd className="rounded-md bg-raise px-1.5 py-0.5 font-mono text-xs text-ink">Alt+Shift+N</kbd>.{' '}
             <button
               type="button"
               onClick={() => void chrome.tabs.create({ url: 'chrome://extensions/shortcuts' })}

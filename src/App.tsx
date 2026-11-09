@@ -4,6 +4,7 @@ import { offsetDateStr } from './lib/dates';
 import { Board } from './components/Board';
 import { CalendarDrawer } from './components/CalendarDrawer';
 import { NoteEditor } from './components/NoteEditor';
+import { PagesDrawer } from './components/PagesDrawer';
 import { SearchBox } from './components/SearchBox';
 import { SettingsDrawer } from './components/SettingsDrawer';
 import { Toasts } from './components/Toasts';
@@ -97,6 +98,7 @@ function AppContent() {
       <Board inert={overlayOpen} />
       {searchOpen && <SearchBox />}
       {drawer === 'calendar' && <CalendarDrawer />}
+      {drawer === 'pages' && <PagesDrawer />}
       {drawer === 'trash' && <TrashDrawer />}
       {drawer === 'settings' && <SettingsDrawer />}
       {editing && <NoteEditor key={editing.id} note={editing} />}
