@@ -1,7 +1,7 @@
 # 0002. Pin sticky notes on web pages with per site access
 
 **Date**: 2026-11-08
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
