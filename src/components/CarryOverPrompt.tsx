@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
 import { isActive } from '../lib/board';
 import { shortDay, weekdayName } from '../lib/dates';
+import { boardNotes } from '../lib/pageNotes';
 import { meta as metaStore, notes as noteStore } from '../lib/storage';
 import type { Note } from '../types';
 
@@ -19,7 +20,7 @@ const findOffer = (today: string): Promise<Offer | null> =>
   navigator.locks.request('carry-over', async () => {
     const m = await metaStore.get();
     if (m.lastCarryOverPromptDate && m.lastCarryOverPromptDate >= today) return null;
-    const all = (await noteStore.getAll()).filter(isActive);
+    const all = boardNotes(await noteStore.getAll()).filter(isActive);
     const lastDay = all.reduce<string | null>((best, n) => (n.dateStr < today && (!best || n.dateStr > best) ? n.dateStr : best), null);
     if (!lastDay) return null;
     const candidates = all

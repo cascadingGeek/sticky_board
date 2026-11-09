@@ -3,6 +3,7 @@ import { CalendarDays, Plus, Search, SlidersHorizontal, Sun, Trash2 } from 'luci
 import { useStickyBoard } from '../lib/StickyBoardContext';
 import { isActive } from '../lib/board';
 import { shortDay } from '../lib/dates';
+import { openPage, siteOf } from '../lib/pageNotes';
 import type { Note } from '../types';
 
 const MAX_RESULTS = 50;
@@ -23,7 +24,7 @@ const snippetFor = (n: Note, q: string): string => {
 
 /** The search box (also the ⌘K palette): commands plus notes across every day. */
 export function SearchBox() {
-  const { notes, setSearchOpen, setCurrentDateStr, highlight, today, requestNewNote, openDrawer } = useStickyBoard();
+  const { allNotes, setSearchOpen, setCurrentDateStr, highlight, today, requestNewNote, openDrawer } = useStickyBoard();
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [active, setActive] = useState(0);
@@ -60,13 +61,14 @@ export function SearchBox() {
 
   const matches = useMemo(() => {
     if (debounced.length < 2) return [];
-    return notes
+    // Board notes from every day plus page notes (spec 0002, AC-12).
+    return allNotes
       .filter(n => isActive(n) && !n.carriedToDate)
       .filter(n =>
         [n.title, n.description, n.source?.title ?? '', ...n.subtasks.map(s => s.title)].some(t => t.toLowerCase().includes(debounced)),
       )
       .sort((a, b) => (a.dateStr === b.dateStr ? (a.updatedAt < b.updatedAt ? 1 : -1) : a.dateStr < b.dateStr ? 1 : -1));
-  }, [notes, debounced]);
+  }, [allNotes, debounced]);
 
   const shownCommands = commands.filter(c => !debounced || c.label.toLowerCase().includes(debounced));
   const shownNotes = matches.slice(0, MAX_RESULTS);
@@ -75,6 +77,10 @@ export function SearchBox() {
 
   const openNote = (n: Note) => {
     close();
+    if (n.page) {
+      openPage(n);
+      return;
+    }
     setCurrentDateStr(n.dateStr);
     setTimeout(() => highlight(n.id), 50);
   };
@@ -156,7 +162,9 @@ export function SearchBox() {
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="flex justify-between gap-3">
                   <span className="truncate text-sm font-semibold">{renderTitle(n.title)}</span>
-                  <span className="text-xs whitespace-nowrap text-ink-faint">{n.dateStr === today ? 'Today' : shortDay(n.dateStr)}</span>
+                  <span className="max-w-[45%] truncate text-xs whitespace-nowrap text-ink-faint">
+                    {n.page ? siteOf(n.page.url) : n.dateStr === today ? 'Today' : shortDay(n.dateStr)}
+                  </span>
                 </span>
                 <span className="truncate text-xs text-ink-faint">{snippetFor(n, debounced)}</span>
               </span>

@@ -164,3 +164,35 @@ describe('opening the board', () => {
     expect(chrome.tabs.create).toHaveBeenCalled();
   });
 });
+
+describe('page notes wiring (spec 0002)', () => {
+  // covers: AC-2, AC-5, AC-17 (menu items only on http and https pages)
+  it('adds "Pin a note here" and "Show notes on this page" for web pages only', async () => {
+    await ev<[{ reason: string }]>(chrome.runtime.onInstalled).emit({ reason: 'install' });
+    const pages = ['http://*/*', 'https://*/*'];
+    expect(chrome.contextMenus.create).toHaveBeenCalledWith({ id: 'pin-note', title: 'Pin a note here', contexts: ['page'], documentUrlPatterns: pages });
+    expect(chrome.contextMenus.create).toHaveBeenCalledWith({ id: 'show-page-notes', title: 'Show notes on this page', contexts: ['page'], documentUrlPatterns: pages });
+  });
+
+  // covers: AC-3
+  it('Alt+Shift+N injects the page script and asks for a draft', async () => {
+    await ev<[string, { id?: number; url?: string }]>(chrome.commands.onCommand).emit('pin-note', { id: 4, url: 'https://a.io/' });
+    expect(chrome.scripting.executeScript).toHaveBeenCalledWith({ target: { tabId: 4 }, files: ['content-scripts/page-notes.js'] });
+    expect(chrome.tabs.sendMessage).toHaveBeenLastCalledWith(4, { type: 'page-notes/new-draft', via: 'shortcut' }, { frameId: 0 });
+  });
+
+  // covers: AC-5
+  it('"Show notes on this page" draws the notes without a draft', async () => {
+    await ev<[{ menuItemId: string }, { id?: number; url?: string }]>(chrome.contextMenus.onClicked).emit({ menuItemId: 'show-page-notes' }, { id: 5, url: 'https://a.io/' });
+    expect(chrome.scripting.executeScript).toHaveBeenCalledWith({ target: { tabId: 5 }, files: ['content-scripts/page-notes.js'] });
+    expect((chrome.tabs.sendMessage as Mock).mock.calls.some(c => (c[1] as { type: string }).type === 'page-notes/new-draft')).toBe(false);
+  });
+
+  // covers: AC-4, AC-16
+  it('re-registers the page script when site access changes', async () => {
+    await chrome.permissions.request({ origins: ['*://a.io/*'] });
+    await ev<[unknown]>(chrome.permissions.onAdded).emit({ origins: ['*://a.io/*'] });
+    await settle();
+    expect(chrome.scripting.registerContentScripts).toHaveBeenCalledWith([expect.objectContaining({ id: 'page-notes', matches: ['*://a.io/*'] })]);
+  });
+});

@@ -1,15 +1,15 @@
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Globe, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
 import { longDate, offsetDateStr, weekdayName } from '../lib/dates';
 
 const iconBtn =
   'relative flex h-10 w-10 items-center justify-center rounded-[10px] text-ink-faint transition-colors hover:bg-raise hover:text-ink';
 
-/** The only lasting UI: the day with ←/→, and icons for Search, Calendar, Trash, Settings and New note. */
+/** The only lasting UI: the day with ←/→, and icons for Search, Calendar, Pages, Trash, Settings and New note. */
 export function TopBar() {
-  const { currentDateStr, setCurrentDateStr, today, notes, openDrawer, drawer, searchOpen, setSearchOpen, requestNewNote } =
+  const { currentDateStr, setCurrentDateStr, today, allNotes, openDrawer, drawer, searchOpen, setSearchOpen, requestNewNote } =
     useStickyBoard();
-  const trashCount = notes.filter(n => n.deletedAt).length;
+  const trashCount = allNotes.filter(n => n.deletedAt).length;
   const isToday = currentDateStr === today;
 
   return (
@@ -66,6 +66,15 @@ export function TopBar() {
           onClick={() => openDrawer('calendar')}
         >
           <CalendarDays size={19} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          aria-label="Pages"
+          title="Notes on web pages"
+          className={`${iconBtn} ${drawer === 'pages' ? 'bg-accent-wash text-accent-soft' : ''}`}
+          onClick={() => openDrawer('pages')}
+        >
+          <Globe size={19} aria-hidden="true" />
         </button>
         <button
           type="button"

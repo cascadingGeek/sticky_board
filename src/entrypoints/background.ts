@@ -1,16 +1,18 @@
 /**
  * Background service worker: right click capture, reminders, trash purge,
- * migrations and opening the board. It keeps no state between events;
+ * migrations, opening the board, and page notes (spec 0002). It keeps no state between events;
  * everything is read from storage each time. All listeners are registered
  * at the top level so Chrome can wake the worker for any of them.
  */
 import { captureLink, captureSelection } from '../lib/capture';
 import { resolveTz, todayInTz } from '../lib/dates';
+import { pageMessageListener, pinOnTab, syncRegistration } from '../lib/pageAccess';
 import { REMINDER_ALARM, runReminderCheck } from '../lib/reminders';
 import { notes, purgeTrash, runMigrations, settings } from '../lib/storage';
 
 const PURGE_ALARM = 'purge-trash';
 const BOARD_PATH = 'newtab.html';
+const WEB_PAGES = ['http://*/*', 'https://*/*'];
 
 const today = async () => todayInTz(resolveTz((await settings.get()).timezone));
 
@@ -52,15 +54,33 @@ export default defineBackground(() => {
     await chrome.contextMenus.removeAll();
     chrome.contextMenus.create({ id: 'send-selection', title: 'Send selection to Sticky Board', contexts: ['selection'] });
     chrome.contextMenus.create({ id: 'save-link', title: 'Save link to Sticky Board', contexts: ['link'] });
+    chrome.contextMenus.create({ id: 'pin-note', title: 'Pin a note here', contexts: ['page'], documentUrlPatterns: WEB_PAGES });
+    chrome.contextMenus.create({ id: 'show-page-notes', title: 'Show notes on this page', contexts: ['page'], documentUrlPatterns: WEB_PAGES });
+    await syncRegistration().catch(() => undefined);
     await ensureAlarms();
     await runReminderCheck();
   });
 
   chrome.runtime.onStartup.addListener(async () => {
+    await syncRegistration().catch(() => undefined);
     await purgeTrash();
   });
 
+  // Site access changed (the Allow window, Settings, or Chrome itself): register for exactly those sites.
+  chrome.permissions.onAdded.addListener(() => void syncRegistration().catch(() => undefined));
+  chrome.permissions.onRemoved.addListener(() => void syncRegistration().catch(() => undefined));
+
+  // Every write from a page note comes through here.
+  chrome.runtime.onMessage.addListener(pageMessageListener);
+
+  // Alt+Shift+N: pin a note on the current page.
+  chrome.commands.onCommand.addListener(async (command, tab) => {
+    if (command === 'pin-note') await pinOnTab(tab, 'shortcut');
+  });
+
   chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+    if (info.menuItemId === 'pin-note') return pinOnTab(tab, 'menu');
+    if (info.menuItemId === 'show-page-notes') return pinOnTab(tab, 'show');
     try {
       if (info.menuItemId === 'send-selection' && info.selectionText) {
         await captureSelection(info.selectionText, info.pageUrl, tab?.title);

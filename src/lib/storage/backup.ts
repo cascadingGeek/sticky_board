@@ -1,4 +1,5 @@
 import { firstFreeSpot, isActive, nextZ } from '../board';
+import { boardNotes, nextPageZ } from '../pageNotes';
 import { SCHEMA_VERSION, type Note } from '../../types';
 import { notes, settings } from './index';
 import { parseNote, parseSettings } from './validate';
@@ -72,10 +73,14 @@ export const importBackup = async (file: File, restoreSettings: boolean): Promis
     if (!p) continue;
     // Older files may lack a position or z: give them the first free cell.
     let note: Note;
-    if (p.positionX === undefined || p.positionY === undefined || p.z === undefined) {
-      const day = working.filter(n => n.dateStr === p.dateStr && isActive(n));
+    if (p.page) {
+      // Page notes keep their saved page spot; never moved to a board spot (AC-13).
+      note = { ...p, positionX: p.positionX ?? 24, positionY: p.positionY ?? 24, z: p.z ?? nextPageZ(working, p.page.url) };
+    } else if (p.positionX === undefined || p.positionY === undefined || p.z === undefined) {
+      const board = boardNotes(working);
+      const day = board.filter(n => n.dateStr === p.dateStr && isActive(n));
       const pos = firstFreeSpot(day, { top: 0, width: 1280 });
-      note = { ...p, positionX: p.positionX ?? pos.x, positionY: p.positionY ?? pos.y, z: p.z ?? nextZ(working, p.dateStr) };
+      note = { ...p, positionX: p.positionX ?? pos.x, positionY: p.positionY ?? pos.y, z: p.z ?? nextZ(board, p.dateStr) };
     } else {
       note = p as Note;
     }

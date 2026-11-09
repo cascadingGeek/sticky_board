@@ -4,6 +4,7 @@
  * change. One alarm is kept, set for the next due reminder.
  */
 import { resolveTz, zonedToEpoch } from './dates';
+import { boardNotes } from './pageNotes';
 import { notes, settings } from './storage';
 import type { Note } from '../types';
 
@@ -23,7 +24,7 @@ export const runReminderCheck = (): Promise<void> =>
     const dueNow: Note[] = [];
     let nextDue = Infinity;
 
-    for (const n of all) {
+    for (const n of boardNotes(all)) {
       if (!isReminder(n)) continue;
       const due = zonedToEpoch(n.dateStr, n.dueTime!, tz);
       if (due > now) nextDue = Math.min(nextDue, due);

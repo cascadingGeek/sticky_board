@@ -9,6 +9,7 @@
 | Feature | Status | Spec |
 |---|---|---|
 | Chrome extension first release | in-progress | [0001](../specs/0001-chrome-extension-mvp/index.md) |
+| Pin notes on websites | in-progress | [0002](../specs/0002-pin-notes-on-websites/index.md) |
 
 ## Chrome extension first release · in-progress
 
@@ -27,11 +28,29 @@ Spec: [0001](../specs/0001-chrome-extension-mvp/index.md) · code in `src/` (WXT
 - [ ] Verify it: /check verify chrome extension first release
 - [x] Test it: /test chrome extension first release
 
+## Pin notes on websites · in-progress
+
+Pin sticky notes on any web page, so a thought stays next to the page it belongs to. Notes come back when you revisit the page, and they live in the same storage as board notes, so search, Trash and backups cover them.
+
+Done when: you can pin a note on a page by right click or a shortcut, move, resize, edit and delete it, see it again on revisit and after a browser restart, and the install warning stays "Display notifications" (website access is asked for one site at a time, only after you pin a note there).
+
+Spec: [0002](../specs/0002-pin-notes-on-websites/index.md) · code in `src/pageNotes/` (on page UI), `src/entrypoints/page-notes.content/`, `src/entrypoints/site-access/`, `src/lib/pageNotes.ts`, `src/lib/pageAccess.ts`
+
+- [x] Design it (spec): /architect pin notes on websites
+- [x] Build it: /develop pin notes on websites
+  - [x] Data and board guard: page fields, address matching, page notes kept off the day board (AC-6, AC-11, AC-13)
+  - [x] First note on a real page and coming back: right click pin, sealed note UI, Allow window, notes return on revisit (AC-1, AC-2, AC-4, AC-5, AC-15, AC-20)
+  - [x] Shortcut, 50 note limit, blocked pages (AC-3, AC-17, AC-18, AC-19)
+  - [x] Full note and board side: drag, resize, edit, collapse, Trash, live updates, address changes, Pages drawer, search, Settings sites list (AC-7 to AC-12, AC-14, AC-16)
+- [ ] Verify it: /check verify pin notes on websites
+- [ ] Test it: /test pin notes on websites
+
 ## Deferred
 
 - Side panel board (from spec 0001)
-- Notes pinned to a website URL (needs access to all sites; from spec 0001)
 - Optional cloud sync of notes (from spec 0001)
+- Page notes fixed to the window ("pin on screen") (from spec 0002)
+- Color filters in the Pages drawer (from spec 0002)
 - Rich text and images in notes (from spec 0001)
 - Archive (from spec 0001)
 - Focus timer and analytics, brought back from git history (from spec 0001)
