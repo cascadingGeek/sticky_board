@@ -64,7 +64,7 @@ describe('importBackup merge rules', () => {
 
   it('restores settings only when asked', async () => {
     await importBackup(backupFile([], { settings: { theme: 'midnight' } }), false);
-    expect((await settings.get()).theme).toBe('dark');
+    expect((await settings.get()).theme).toBe('light');
     await importBackup(backupFile([], { settings: { theme: 'midnight' } }), true);
     expect((await settings.get()).theme).toBe('midnight');
   });
@@ -78,7 +78,7 @@ describe('importBackup rejects bad files and changes nothing', () => {
     expect(err).toBeInstanceOf(ImportError);
     expect(err.message).toMatch(message);
     expect(await storedNotes()).toEqual([existing]);
-    expect((await settings.get()).theme).toBe('dark');
+    expect((await settings.get()).theme).toBe('light');
   };
 
   // covers: AC-5 ("nothing was imported", data unchanged)

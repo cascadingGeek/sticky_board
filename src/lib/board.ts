@@ -72,12 +72,21 @@ export const firstFreeSpot = (dayNotes: Note[], viewport: Viewport): { x: number
   return base;
 };
 
-/** Stable tilt between -2 and 2 degrees, derived from the note id. */
-export const tiltFor = (id: string): number => {
+/** A stable non negative integer hash of a string (the loop tilt has always used). */
+export const hashOf = (s: string): number => {
   let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
-  return ((Math.abs(h) % 401) / 100) - 2;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
 };
+
+/** Stable tilt between -2.5 and 2.5 degrees, derived from the note id. */
+export const tiltFor = (id: string): number => (hashOf(id) % 501) / 100 - 2.5;
+
+export const PIN_COLORS = ['red', 'yellow', 'green', 'blue'] as const;
+export type PinColor = (typeof PIN_COLORS)[number];
+
+/** Stable pushpin colour from the note id, salted so it doesn't follow the tilt. */
+export const pinFor = (id: string): PinColor => PIN_COLORS[hashOf(`${id}:pin`) % 4]!;
 
 export interface TextPart {
   text: string;

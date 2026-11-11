@@ -1,9 +1,13 @@
 /*
- * Page notes UI (spec 0002). Loaded inside a closed shadow root, so site CSS
- * can't reach it. Sizes are px (never rem, which follows the site's root font
- * size) and text uses the system font (web fonts don't load in a shadow root).
- * The `!important` on :host wins over any site rule aimed at our element.
+ * Notes on websites (spec 0002, restyled by spec 0003). Loaded inside a closed
+ * shadow root, so site CSS can't reach it. Sizes are px (never rem, which
+ * follows the site's root font size). The paper, pin and grain come from the
+ * shared partial; website notes always use its Light values, whatever the
+ * board theme. The `!important` on :host wins over any site rule aimed at our
+ * element.
  */
+@import "../styles/paper.css";
+
 :host {
   all: initial !important;
   display: block !important;
@@ -25,52 +29,57 @@
 }
 
 .sb-root {
+  /* The bundled handwriting font, registered under a private name (AC-24). */
+  --hand-font: "SB Hand", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --plain-font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --sb-dark: #1f1f22;
+  --sb-danger: #8f1d12;
+  --sb-focus: rgba(31, 31, 34, 0.55);
   position: absolute;
   top: 0;
   left: 0;
   width: 0;
   height: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--plain-font);
   font-size: 13px;
   line-height: 1.35;
-  color: #1c1917;
+  color: var(--paper-ink);
   -webkit-font-smoothing: antialiased;
 }
 
-/* Paper colors, the same as the board, with dark ink on every site. */
-.paper-yellow { background: linear-gradient(135deg, #fef08a 0%, #fde047 100%); color: #422006; }
-.paper-blue { background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%); color: #1e3a8a; }
-.paper-green { background: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%); color: #14532d; }
-.paper-pink { background: linear-gradient(135deg, #fbcfe8 0%, #f9a8d4 100%); color: #701a75; }
-.paper-purple { background: linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 100%); color: #581c87; }
-.paper-orange { background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%); color: #7c2d12; }
-.paper-mint { background: linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%); color: #115e59; }
-.paper-cream { background: linear-gradient(135deg, #fafaf9 0%, #f5f5f4 100%); color: #292524; }
+/* Until the font settles (at most 300 ms), the text is hidden so it never jumps. */
+.sb-hide-text .sb-note,
+.sb-hide-text .sb-tab,
+.sb-hide-text .sb-note ::placeholder {
+  color: transparent !important;
+}
 
+/* The note: an absolutely placed paper shell; the sheet inside holds everything. */
 .sb-note {
   position: absolute;
+  pointer-events: auto;
+}
+.sb-note > .paper {
   display: flex;
   flex-direction: column;
-  border-radius: 4px;
-  box-shadow: 0 14px 22px -6px rgba(0, 0, 0, 0.35), 0 4px 6px -2px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.06);
-  pointer-events: auto;
-  overflow: hidden;
 }
-.sb-note.sb-lifted {
-  box-shadow: 0 26px 38px -10px rgba(0, 0, 0, 0.45), 0 8px 12px -4px rgba(0, 0, 0, 0.25);
+.sb-note.sb-lifted .paper {
+  box-shadow: var(--note-drop-lift);
 }
 
+/* The glue band doubles as the drag handle. */
 .sb-bar {
+  position: relative;
+  z-index: 4;
   display: flex;
   align-items: center;
-  gap: 2px;
-  height: 30px;
+  gap: 4px;
+  height: 34px;
   flex: none;
-  padding: 0 4px 0 8px;
+  padding: 0 6px 0 8px;
   cursor: grab;
   touch-action: none;
   user-select: none;
-  background: rgba(0, 0, 0, 0.06);
 }
 .sb-bar:active {
   cursor: grabbing;
@@ -78,39 +87,46 @@
 .sb-grip {
   flex: 1;
   height: 100%;
+  display: flex;
+  align-items: center;
+  opacity: 0.45;
 }
 
 .sb-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   margin: 0;
   padding: 0;
   border: 0;
   border-radius: 6px;
-  background: transparent;
-  color: inherit;
+  background: var(--paper-tool);
+  color: var(--paper-ink);
   cursor: pointer;
   font: inherit;
 }
 .sb-icon:hover {
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--paper-tool-hover);
 }
 .sb-icon:focus-visible,
 .sb-btn:focus-visible,
-.sb-tab:focus-visible,
+.sb-tab:focus-visible {
+  outline: 3px solid var(--sb-focus);
+  outline-offset: 2px;
+}
+/* Fields on paper show focus as an ink underline, like the board editor. */
 .sb-field:focus-visible {
-  outline: 2px solid #4f46e5;
-  outline-offset: 1px;
+  outline: none;
+  box-shadow: inset 0 -1.5px 0 var(--paper-ink);
 }
 
 .sb-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 6px 12px 10px;
+  padding: 6px 16px 12px;
   scrollbar-width: thin;
 }
 
@@ -118,48 +134,64 @@
   display: block;
   width: 100%;
   margin: 0;
-  padding: 2px 0;
+  padding: 0;
   border: 0;
   border-radius: 3px;
   background: transparent;
-  color: inherit;
-  font: inherit;
+  color: var(--paper-ink);
+  font-family: var(--hand-font);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.2;
   outline: none;
 }
 .sb-field::placeholder {
-  color: currentColor;
-  opacity: 0.5;
+  color: var(--paper-ink);
+  opacity: 0.45;
 }
 .sb-title {
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.25;
+  font-size: 28px;
+  line-height: 1.1;
 }
 .sb-details {
-  margin-top: 4px;
+  margin-top: 6px;
   resize: none;
-  min-height: 40px;
-  font-size: 13px;
+  min-height: 24px;
+}
+.sb-draft-title {
+  border-bottom: 1.5px solid var(--paper-ink);
+  padding-bottom: 2px;
+}
+
+/* Handwriting off (Settings): Inter sizes, as on the board (AC-7). */
+.no-handwriting .sb-field {
+  font-family: var(--plain-font);
+  font-size: 14px;
   line-height: 1.4;
+}
+.no-handwriting .sb-title {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
 }
 
 .sb-list {
-  margin: 6px 0 0;
+  margin: 8px 0 0;
   padding: 0;
   list-style: none;
 }
 .sb-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 24px;
+  gap: 8px;
+  min-height: 28px;
 }
 .sb-item input[type="checkbox"] {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   margin: 0;
-  accent-color: currentColor;
+  accent-color: var(--paper-ink);
   cursor: pointer;
 }
 .sb-item .sb-field {
@@ -168,11 +200,11 @@
 }
 .sb-item.sb-done .sb-field {
   text-decoration: line-through;
-  opacity: 0.65;
+  opacity: 0.6;
 }
 .sb-item .sb-icon {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   opacity: 0;
 }
 .sb-item:hover .sb-icon,
@@ -180,86 +212,97 @@
   opacity: 1;
 }
 
-.sb-allow {
+/* The bottom strip for the Allow prompt and errors. */
+.sb-strip {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex: none;
-  padding: 6px 10px;
+  margin: 0;
+  padding: 8px 10px 8px 16px;
+  font-family: var(--plain-font);
   font-size: 12px;
-  font-weight: 600;
-  background: rgba(0, 0, 0, 0.08);
+  font-weight: 500;
+  line-height: 1.3;
+  background: rgba(0, 0, 0, 0.06);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
-.sb-allow span {
+.sb-strip > span {
   flex: 1;
+}
+.sb-strip.sb-error {
+  color: var(--sb-danger);
+  font-weight: 600;
+  border-top: 1px dashed rgba(143, 29, 18, 0.45);
 }
 
 .sb-btn {
   flex: none;
-  height: 26px;
-  padding: 0 10px;
+  height: 28px;
+  padding: 0 12px;
   border: 0;
-  border-radius: 6px;
-  background: #4f46e5;
+  border-radius: 8px;
+  background: var(--sb-dark);
   color: #ffffff;
-  font: inherit;
+  font-family: var(--plain-font);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 .sb-btn:hover {
-  filter: brightness(1.1);
-}
-.sb-btn-quiet {
-  background: rgba(0, 0, 0, 0.1);
-  color: inherit;
+  filter: brightness(1.25);
 }
 
 .sb-hint {
   margin-top: auto;
   padding-top: 6px;
+  font-family: var(--plain-font);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   opacity: 0.8;
-}
-.sb-error {
-  flex: none;
-  margin: 0;
-  padding: 6px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  background: #7f1d1d;
-  color: #ffffff;
 }
 
 .sb-resize {
   position: absolute;
-  right: 0;
-  bottom: 0;
+  z-index: 4;
+  right: 2px;
+  bottom: 2px;
   width: 16px;
   height: 16px;
   cursor: nwse-resize;
   touch-action: none;
-  background: linear-gradient(135deg, transparent 50%, rgba(0, 0, 0, 0.25) 50%, rgba(0, 0, 0, 0.25) 60%, transparent 60%, transparent 72%, rgba(0, 0, 0, 0.25) 72%, rgba(0, 0, 0, 0.25) 82%, transparent 82%);
+  background: linear-gradient(135deg, transparent 50%, rgba(0, 0, 0, 0.3) 50%, rgba(0, 0, 0, 0.3) 58%, transparent 58%, transparent 70%, rgba(0, 0, 0, 0.3) 70%, rgba(0, 0, 0, 0.3) 78%, transparent 78%);
 }
 
+/* A collapsed note: a strip of the same paper with its pin and title. */
 .sb-tab {
   position: absolute;
   display: inline-flex;
   align-items: center;
-  max-width: 200px;
-  height: 28px;
-  padding: 0 10px;
+  max-width: 220px;
+  height: 44px;
+  padding: 0 14px 0 38px;
   border: 0;
-  border-radius: 6px;
-  box-shadow: 0 6px 12px -4px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.08);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
+  margin: 0;
+  color: var(--paper-ink);
+  background: transparent;
+  font-family: var(--hand-font);
+  font-size: 21px;
   white-space: nowrap;
-  overflow: hidden;
   cursor: pointer;
   pointer-events: auto;
+}
+.sb-tab > .paper {
+  z-index: -1;
+}
+.sb-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.no-handwriting .sb-tab {
+  font-family: var(--plain-font);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .sb-sr {
@@ -277,6 +320,9 @@
   }
 }
 @keyframes sb-drop {
-  from { transform: translateY(-10px); opacity: 0; }
-  to { transform: none; opacity: 1; }
+  from { translate: 0 -10px; opacity: 0; }
+  to { translate: 0 0; opacity: 1; }
+}
+.sb-tab::after {
+  display: none;
 }

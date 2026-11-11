@@ -3,12 +3,19 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
 import { isActive } from '../lib/board';
 import { parseDateStr, toDateStr } from '../lib/dates';
+import type { Note } from '../types';
 import { Drawer } from './Drawer';
 
-const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-/** Month grid with a dot per note (solid done, outlined open); a day click opens that board. */
+const plural = (n: number) => `${n} ${n === 1 ? 'note' : 'notes'}`;
+
+/**
+ * Month grid. Each day shows up to 3 small paper squares in the colours of
+ * that day's board notes (not in Trash, first 3 by createdAt). Today is filled
+ * with the primary colour, past days are muted. A day click opens that board.
+ */
 export function CalendarDrawer() {
   const { notes, currentDateStr, setCurrentDateStr, today, settings, openDrawer } = useStickyBoard();
   const [month, setMonth] = useState(() => {
@@ -16,15 +23,15 @@ export function CalendarDrawer() {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
 
-  const counts = useMemo(() => {
-    const map = new Map<string, { done: number; open: number }>();
+  const byDay = useMemo(() => {
+    const map = new Map<string, Note[]>();
     for (const n of notes) {
       if (!isActive(n)) continue;
-      const c = map.get(n.dateStr) ?? { done: 0, open: 0 };
-      if (n.isCompleted) c.done++;
-      else c.open++;
-      map.set(n.dateStr, c);
+      const list = map.get(n.dateStr) ?? [];
+      list.push(n);
+      map.set(n.dateStr, list);
     }
+    for (const list of map.values()) list.sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
     return map;
   }, [notes]);
 
@@ -38,73 +45,86 @@ export function CalendarDrawer() {
   const label = month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const shift = (by: number) => setMonth(new Date(month.getFullYear(), month.getMonth() + by, 1));
 
+  const viewed = byDay.get(currentDateStr) ?? [];
+  const viewedDone = viewed.filter(n => n.isCompleted).length;
+  const viewedLabel = parseDateStr(currentDateStr).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+
+  const navBtn = 'flex h-11 w-11 items-center justify-center rounded-[10px] text-ink hover:bg-hover';
+
   return (
-    <Drawer title="Calendar" onClose={() => openDrawer(null)}>
+    <Drawer
+      title="Calendar"
+      onClose={() => openDrawer(null)}
+      footer={
+        <div className="flex items-center justify-between gap-3 rounded-[14px] bg-raise px-4 py-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="truncate text-sm font-semibold">{viewedLabel}</span>
+            <span className="text-xs text-ink-faint">
+              {viewed.length ? `${plural(viewed.length)} · ${viewedDone} done` : 'No notes'}
+            </span>
+          </span>
+          {currentDateStr === today && (
+            <span className="flex-none rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-accent-ink">Today</span>
+          )}
+        </div>
+      }
+    >
       <div className="flex items-center justify-between">
-        <button type="button" aria-label="Previous month" onClick={() => shift(-1)} className="flex h-10 w-10 items-center justify-center rounded-[10px] text-ink-faint hover:bg-raise">
-          <ChevronLeft size={18} aria-hidden="true" />
+        <button type="button" aria-label="Previous month" onClick={() => shift(-1)} className={navBtn}>
+          <ChevronLeft size={19} aria-hidden="true" />
         </button>
-        <span className="text-[15px] font-semibold" aria-live="polite">
+        <span className="text-base font-semibold" aria-live="polite">
           {label}
         </span>
-        <button type="button" aria-label="Next month" onClick={() => shift(1)} className="flex h-10 w-10 items-center justify-center rounded-[10px] text-ink-faint hover:bg-raise">
-          <ChevronRight size={18} aria-hidden="true" />
+        <button type="button" aria-label="Next month" onClick={() => shift(1)} className={navBtn}>
+          <ChevronRight size={19} aria-hidden="true" />
         </button>
       </div>
 
-      <div role="grid" aria-label={label} className="mt-4 grid grid-cols-7 gap-1">
+      <div className="mt-3 mb-1.5 grid grid-cols-7 gap-1" aria-hidden="true">
         {WEEKDAYS.map((_, i) => {
           const idx = (i + start) % 7;
           return (
-            <abbr key={idx} title={WEEKDAY_NAMES[idx]} className="pb-1 text-center text-[11px] font-semibold text-ink-faint no-underline">
+            <abbr key={idx} title={WEEKDAY_NAMES[idx]} className="text-center text-xs font-semibold text-ink-faint no-underline">
               {WEEKDAYS[idx]}
             </abbr>
           );
         })}
+      </div>
+      <div role="grid" aria-label={label} className="grid grid-cols-7 gap-1">
         {cells.map((d, i) => {
           if (!d) return <span key={`blank-${i}`} aria-hidden="true" />;
-          const c = counts.get(d) ?? { done: 0, open: 0 };
-          const total = c.done + c.open;
-          const dots = [...Array(Math.min(c.done, 3)).fill('done'), ...Array(Math.max(0, Math.min(c.open, 3 - Math.min(c.done, 3)))).fill('open')];
+          const list = byDay.get(d) ?? [];
           const isToday = d === today;
           const isViewed = d === currentDateStr;
+          const isPast = d < today;
+          const name = parseDateStr(d).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
           return (
             <button
               key={d}
               type="button"
-              aria-label={`${parseDateStr(d).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}: ${c.done} done, ${c.open} open`}
+              aria-label={`${name}, ${list.length ? plural(list.length) : 'no notes'}${isToday ? ', today' : ''}`}
               aria-current={isViewed ? 'date' : undefined}
               onClick={() => {
                 setCurrentDateStr(d);
                 openDrawer(null);
               }}
-              className={`flex h-12 flex-col items-center justify-center gap-1 rounded-[10px] text-[13px] ${
-                isViewed ? 'bg-accent font-bold text-accent-ink' : 'hover:bg-raise'
-              } ${isToday ? 'ring-2 ring-accent-soft ring-offset-2 ring-offset-panel' : ''} ${d > today && !isViewed ? 'text-ink-faint' : ''}`}
+              className={`flex h-[58px] flex-col items-center justify-start gap-[5px] rounded-[10px] pt-[7px] text-sm font-medium ${
+                isToday ? 'bg-accent text-accent-ink' : `hover:bg-hover ${isPast ? 'text-ink-faint' : 'text-ink'}`
+              } ${isViewed && !isToday ? 'ring-2 ring-accent-soft ring-inset' : ''}`}
             >
               <span>{parseDateStr(d).getDate()}</span>
-              <span className="flex h-1.5 items-center gap-[3px]" aria-hidden="true">
-                {dots.map((kind, j) => (
-                  <span key={j} className={`h-1.5 w-1.5 rounded-full ${kind === 'done' ? 'bg-current' : 'border-[1.5px] border-current'}`} />
+              <span className="flex h-[9px] gap-[3px]" aria-hidden="true">
+                {list.slice(0, 3).map(n => (
+                  <i key={n.id} className={`paper-${n.noteColor} paper-swatch block h-[9px] w-[9px] shadow-[-1px_1px_1px_rgba(0,0,0,0.25)]`} />
                 ))}
-                {total > 3 && <span className="text-[9px] leading-none font-bold">+</span>}
               </span>
             </button>
           );
         })}
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-4 text-xs text-ink-faint">
-        <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
-          Done
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full border-[1.5px] border-current" aria-hidden="true" />
-          Open
-        </span>
-        <span className="ml-auto">Click a day to open it</span>
-      </div>
+      <p className="mt-4 mb-0 px-1 text-[13px] text-ink-faint">Click a day to open it</p>
     </Drawer>
   );
 }

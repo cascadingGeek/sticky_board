@@ -14,7 +14,8 @@ export default defineConfig({
     minimum_chrome_version: '116',
     permissions: ['storage', 'unlimitedStorage', 'contextMenus', 'activeTab', 'alarms', 'notifications', 'scripting'],
     // Spec 0002: no host_permissions at install. Site access is asked for one site at a time.
-    optional_host_permissions: ['http://*/*', 'https://*/*'],
+    // `*://*/*` (http and https only): Chrome rejects a `*://site/*` request unless the manifest declares the `*` scheme.
+    optional_host_permissions: ['*://*/*'],
     action: {
       default_title: 'Open Sticky Board',
     },

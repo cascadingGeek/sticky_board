@@ -73,10 +73,12 @@ describe('loading', () => {
     expect(ctx.currentDateStr).toBe('2026-11-08');
   });
 
-  it('shows an error toast when storage can\'t be read', async () => {
+  // covers: spec 0003 AC-12 (the board shows its load error state instead of a toast)
+  it('marks the load as failed when storage can\'t be read', async () => {
     vi.mocked(chrome.storage.local.get).mockRejectedValueOnce(new Error('broken'));
     await mount();
-    expect(toastText()).toContain("Couldn't load your notes. Try reopening the tab.");
+    expect(ctx.loaded).toBe(true);
+    expect(ctx.loadFailed).toBe(true);
   });
 });
 
@@ -291,9 +293,9 @@ describe('theme', () => {
 
   it('previews a theme without caching it', async () => {
     await mount();
-    act(() => ctx.setThemeOverride('light'));
-    expect(document.documentElement.dataset.theme).toBe('light');
-    expect(localStorage.getItem('sb_theme')).toBe('dark');
+    act(() => ctx.setThemeOverride('cork'));
+    expect(document.documentElement.dataset.theme).toBe('cork');
+    expect(localStorage.getItem('sb_theme')).toBe('light');
   });
 
   // covers: AC-9 (System follows the OS appearance without reload)

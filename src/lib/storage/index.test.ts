@@ -202,12 +202,66 @@ describe('meta and migrations', () => {
 
   it('runMigrations writes the schema version on a fresh install', async () => {
     await runMigrations();
-    expect((await chrome.storage.local.get('meta')).meta).toEqual({ schemaVersion: 1 });
+    expect((await chrome.storage.local.get('meta')).meta).toEqual({ schemaVersion: 1, themeDefaultCheckedAt: expect.any(String) });
   });
 
   it('runMigrations keeps existing meta fields', async () => {
     await chrome.storage.local.set({ meta: { schemaVersion: 1, onboardedAt: 'x' } });
     await runMigrations();
-    expect((await chrome.storage.local.get('meta')).meta).toEqual({ schemaVersion: 1, onboardedAt: 'x' });
+    expect((await chrome.storage.local.get('meta')).meta).toEqual({ schemaVersion: 1, onboardedAt: 'x', themeDefaultCheckedAt: expect.any(String) });
+  });
+});
+
+describe('theme default check (spec 0003, AC-2)', () => {
+  const syncSettings = async () => (await chrome.storage.sync.get('settings')).settings as Record<string, unknown> | undefined;
+
+  it('saves dark once for an existing user who never saved a theme, touching nothing else', async () => {
+    await meta.patch({ onboardedAt: '2026-10-01T00:00:00.000Z' });
+    await chrome.storage.sync.set({ settings: { soundEnabled: false, timezone: 'Europe/London' } });
+    await runMigrations();
+    expect(await syncSettings()).toEqual({ soundEnabled: false, timezone: 'Europe/London', theme: 'dark' });
+    expect((await meta.get()).themeDefaultCheckedAt).toBeTruthy();
+  });
+
+  it('saves dark when sync has no settings at all', async () => {
+    await meta.patch({ onboardedAt: '2026-10-01T00:00:00.000Z' });
+    await runMigrations();
+    expect(await syncSettings()).toEqual({ theme: 'dark' });
+  });
+
+  it('keeps a theme the user already saved', async () => {
+    await meta.patch({ onboardedAt: '2026-10-01T00:00:00.000Z' });
+    await chrome.storage.sync.set({ settings: { theme: 'cork' } });
+    await runMigrations();
+    expect(await syncSettings()).toEqual({ theme: 'cork' });
+  });
+
+  it('writes no theme on a fresh install, but still records the check', async () => {
+    await runMigrations();
+    expect(await syncSettings()).toBeUndefined();
+    expect((await meta.get()).themeDefaultCheckedAt).toBeTruthy();
+    expect((await settings.get()).theme).toBe('light');
+  });
+
+  it('writes no theme when notes exist but onboarding never finished', async () => {
+    await createNote({ title: 'a', dateStr: '2026-11-08' });
+    await runMigrations();
+    expect(await syncSettings()).toBeUndefined();
+  });
+
+  it('runs once only, even if the theme key is removed later', async () => {
+    await meta.patch({ onboardedAt: '2026-10-01T00:00:00.000Z' });
+    await runMigrations();
+    await chrome.storage.sync.set({ settings: { soundEnabled: true } });
+    await runMigrations();
+    expect(await syncSettings()).toEqual({ soundEnabled: true });
+  });
+
+  it('writes nothing and leaves the marker unset when sync storage fails', async () => {
+    await meta.patch({ onboardedAt: '2026-10-01T00:00:00.000Z' });
+    vi.mocked(chrome.storage.sync.get).mockRejectedValueOnce(new Error('sync down'));
+    await runMigrations();
+    expect(chrome.storage.sync.set).not.toHaveBeenCalled();
+    expect((await meta.get()).themeDefaultCheckedAt).toBeUndefined();
   });
 });

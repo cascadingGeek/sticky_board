@@ -1,0 +1,325 @@
+/*
+ * Sticky Board paper (spec 0003): the one paper look shared by board notes,
+ * the editor sheet and notes on websites. Plain CSS only (no Tailwind
+ * @theme, @apply or @layer), because the content script has no Tailwind.
+ *
+ * The Light values live on `:root, .sb-root`. The [data-theme] blocks in
+ * src/index.css override the paper shade and shadow depth on the board only;
+ * paper hue, ink and pin colour never change with the theme.
+ */
+:root,
+.sb-root {
+  --paper-yellow: #fdf29b;
+  --paper-blue: #8fcbfd;
+  --paper-green: #8fe0a6;
+  --paper-pink: #fdbef0;
+  --paper-purple: #dcc0fd;
+  --paper-orange: #ffc97a;
+  --paper-mint: #86dcee;
+  --paper-cream: #f1eee6;
+  --paper-ink: #232323;
+  --paper-glue: rgba(0, 0, 0, 0.045);
+  --paper-sheen-hi: rgba(255, 255, 255, 0.25);
+  --paper-sheen-lo: rgba(0, 0, 0, 0.05);
+  --paper-chip: rgba(0, 0, 0, 0.1);
+  --paper-tool: rgba(0, 0, 0, 0.08);
+  --paper-tool-hover: rgba(0, 0, 0, 0.16);
+
+  --note-drop: 0 1px 1px rgba(0, 0, 0, 0.1), -8px 12px 14px -10px rgba(0, 0, 0, 0.45);
+  --note-drop-lift: 0 1px 1px rgba(0, 0, 0, 0.1), -12px 22px 26px -12px rgba(0, 0, 0, 0.5);
+  --note-curl: rgba(0, 0, 0, 0.3);
+  --note-curl-side: rgba(0, 0, 0, 0.16);
+  --curl-b-left: -6px;
+  --curl-b-bottom: -3px;
+  --curl-b-w: 72%;
+  --curl-b-h: 26px;
+  --curl-b-blur: 10px;
+  --curl-l-left: -7px;
+  --curl-l-w: 18px;
+  --curl-l-h: 74%;
+  --curl-l-blur: 9px;
+  --pin-shadow: rgba(0, 0, 0, 0.42);
+
+  --hand-font: "Caveat Brush", cursive;
+  --plain-font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Paper colour for one note: sets --paper from the (theme aware) palette. */
+.paper-yellow { --paper: var(--paper-yellow); }
+.paper-blue { --paper: var(--paper-blue); }
+.paper-green { --paper: var(--paper-green); }
+.paper-pink { --paper: var(--paper-pink); }
+.paper-purple { --paper: var(--paper-purple); }
+.paper-orange { --paper: var(--paper-orange); }
+.paper-mint { --paper: var(--paper-mint); }
+.paper-cream { --paper: var(--paper-cream); }
+
+/* A flat swatch of the paper colour (calendar squares, list markers). */
+.paper-swatch {
+  background-color: var(--paper);
+}
+
+/*
+ * The note shell: holds the two blurred curl strips under the sheet. Give it
+ * position (relative or absolute) and size; the sheet (.paper) fills it. Its
+ * own stacking context (`isolation`) keeps the curls under the sheet.
+ */
+.paper-note {
+  isolation: isolate;
+}
+.paper-note::before,
+.paper-note::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+}
+.paper-note::before {
+  left: var(--curl-b-left);
+  bottom: var(--curl-b-bottom);
+  width: var(--curl-b-w);
+  height: var(--curl-b-h);
+  background: var(--note-curl);
+  filter: blur(var(--curl-b-blur));
+  transform: rotate(-2deg);
+}
+.paper-note::after {
+  left: var(--curl-l-left);
+  top: 34px;
+  width: var(--curl-l-w);
+  height: var(--curl-l-h);
+  background: var(--note-curl-side);
+  filter: blur(var(--curl-l-blur));
+}
+
+/* The sheet: flat colour, 34 px glue band, faint sheen, contact and drop shadow, grain. */
+.paper {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  color: var(--paper-ink);
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--paper-glue), var(--paper-glue) 34px, transparent 34px),
+    linear-gradient(150deg, var(--paper-sheen-hi), transparent 45%, var(--paper-sheen-lo));
+  box-shadow: var(--note-drop);
+  isolation: isolate;
+}
+/* Grain sits under the content (z-index -1 inside the sheet's own stacking context). */
+.paper::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(rgba(0, 0, 0, 0.05) 0.6px, transparent 0.9px),
+    radial-gradient(rgba(255, 255, 255, 0.18) 0.6px, transparent 0.9px);
+  background-size: 3px 3px, 5px 5px;
+  background-position: 0 0, 2px 1px;
+}
+/* A sheet that sits in normal flow (the editor), not filling a shell. */
+.paper.paper-static {
+  position: relative;
+  inset: auto;
+}
+.paper-lifted .paper,
+.paper.paper-lifted {
+  box-shadow: var(--note-drop-lift);
+}
+
+/* Pushpin: dome head with a highlight, shaded body, darker collar, long shadow. */
+.pin {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  z-index: 3;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.pin > i {
+  position: absolute;
+  display: block;
+}
+.pin .pin-shadow {
+  left: -5px;
+  top: 8px;
+  width: 10px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(var(--pin-shadow), transparent);
+  filter: blur(3px);
+  transform: rotate(38deg);
+  transform-origin: 50% 0;
+}
+.pin .pin-collar {
+  left: -9px;
+  top: 9px;
+  width: 18px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pin-d);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.pin .pin-body {
+  left: -6px;
+  top: 0;
+  width: 12px;
+  height: 13px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--pin-d), var(--pin-c) 40%, var(--pin-l) 58%, var(--pin-d));
+}
+.pin .pin-head {
+  left: -11px;
+  top: -13px;
+  width: 22px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #ffffff 0, rgba(255, 255, 255, 0.9) 1.5px, var(--pin-l) 4px, var(--pin-c) 45%, var(--pin-d) 100%);
+  box-shadow: inset -2px -3px 4px rgba(0, 0, 0, 0.25), 0 2px 3px rgba(0, 0, 0, 0.3);
+}
+.pin-large {
+  top: 18px;
+  transform: scale(1.3);
+}
+.pin-red { --pin-c: #e2231a; --pin-l: #ff7a6e; --pin-d: #9e1209; }
+.pin-yellow { --pin-c: #f2d60a; --pin-l: #fff27a; --pin-d: #a88f00; }
+.pin-green { --pin-c: #22c62e; --pin-l: #8cf08f; --pin-d: #0f7a18; }
+.pin-blue { --pin-c: #1e6fe0; --pin-l: #7fb2ff; --pin-d: #0f449a; }
+
+/* Handwriting on notes (AC-7). `.no-handwriting` (on <html> for the board, on .sb-root on websites) switches to Inter. */
+.note-title {
+  margin: 0;
+  font-family: var(--hand-font);
+  font-size: 31px;
+  font-weight: 400;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+.note-text {
+  font-family: var(--hand-font);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.no-handwriting .note-title {
+  font-family: var(--plain-font);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.no-handwriting .note-text {
+  font-family: var(--plain-font);
+  font-size: 14px;
+  line-height: 1.4;
+}
+/* A note title in a list row (Trash, Pages, Search, Carry over). Pair with .font-hand. */
+.note-row-title {
+  font-size: 21px;
+  line-height: 1.1;
+}
+.no-handwriting .note-row-title {
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+/* Small chips on the paper: due time, link, carried over. */
+.note-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--paper-chip);
+  color: var(--paper-ink);
+  font-family: var(--plain-font);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.note-chip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+a.note-chip {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* A small check box drawn on the paper. */
+.note-check {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--paper-ink);
+  border-radius: 3px;
+}
+
+/*
+ * The note editor sheet (spec 0003, AC-14): the note's own paper at 580 px,
+ * a 48 px glue band and a deeper shadow. Controls on the paper use fixed
+ * paper colours (the paper is light in every theme).
+ */
+:root {
+  --paper-danger: #8f1d12;
+  --paper-btn: #1f1f22;
+  --paper-btn-ink: #ffffff;
+  --paper-line: rgba(35, 35, 35, 0.3);
+  --paper-box: rgba(255, 255, 255, 0.55);
+  --paper-box-line: rgba(0, 0, 0, 0.12);
+  --paper-switch-off: rgba(0, 0, 0, 0.15);
+  --paper-rule: rgba(0, 0, 0, 0.18);
+}
+.paper.paper-editor {
+  background-image:
+    linear-gradient(var(--paper-glue), var(--paper-glue) 48px, transparent 48px),
+    linear-gradient(150deg, var(--paper-sheen-hi), transparent 45%, var(--paper-sheen-lo));
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1), -14px 22px 30px -14px rgba(0, 0, 0, 0.5);
+}
+.editor-title {
+  font-size: 42px;
+  line-height: 1.15;
+}
+.editor-text {
+  font-size: 23px;
+  line-height: 1.25;
+}
+.editor-item {
+  font-size: 22px;
+  line-height: 1.2;
+}
+.no-handwriting .editor-title {
+  font-size: 24px;
+  line-height: 1.3;
+}
+.no-handwriting .editor-text,
+.no-handwriting .editor-item {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* Website letter badge (Pages drawer, Settings sites list). */
+.site-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: #ffffff;
+  font: 700 11px/1 var(--plain-font);
+}
+.site-badge-0 { background: #2f7a3d; }
+.site-badge-1 { background: #b4542a; }
+.site-badge-2 { background: #4a4aa8; }
+.site-badge-3 { background: #9c2f6b; }
+.site-badge-4 { background: #1f6f8b; }

@@ -27,7 +27,7 @@ export interface PageRef {
 export interface Note {
   id: string;
   title: string; // 1 to 200 chars
-  description: string; // up to 5,000 chars
+  description: string; // up to 10,000 chars
   isCompleted: boolean;
   dateStr: string; // YYYY-MM-DD in the resolved timezone
   noteColor: NoteColor;
@@ -54,6 +54,7 @@ export interface Meta {
   schemaVersion: number;
   onboardedAt?: string;
   lastCarryOverPromptDate?: string;
+  themeDefaultCheckedAt?: string; // when the one time theme check ran (spec 0003, AC-2)
 }
 
 export const THEMES = ['dark', 'light', 'midnight', 'cork', 'system'] as const;
@@ -69,7 +70,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  theme: 'dark',
+  theme: 'light',
   handwritingFont: true,
   soundEnabled: true,
   timezone: 'auto',
@@ -81,9 +82,12 @@ export const SCHEMA_VERSION = 1;
 export const NOTE_SIZE = 220;
 export const NOTE_GAP = 24;
 export const TITLE_MAX = 200;
-export const DESCRIPTION_MAX = 5000;
+export const DESCRIPTION_MAX = 10000;
 export const SUBTASKS_MAX = 50;
 export const TRASH_DAYS = 30;
+/** Notes one day's board can hold. Trashed notes don't count. */
+export const DAY_NOTE_LIMIT = 50;
+export const DAY_FULL_MESSAGE = 'This day already has 50 notes, the most a day can hold. Finish or remove one to add another.';
 
 // Page notes (spec 0002).
 export const PAGE_NOTE_LIMIT = 50;

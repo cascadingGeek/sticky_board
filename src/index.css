@@ -1,142 +1,283 @@
 @import "tailwindcss";
+@import "./styles/paper.css";
 
 /*
- * Sticky Board design tokens. Dark is the default; [data-theme] on <html>
- * switches the semantic tokens (set before first paint by public/theme-boot.js).
- * Use the tokens (bg-app, bg-panel, text-ink, border-line, bg-accent, ...),
- * never raw colors, so every theme keeps working.
+ * Sticky Board design tokens (spec 0003). Light ("Wall") is the base: with no
+ * data-theme, these values apply. [data-theme] on <html> switches to Dark,
+ * Midnight or Cork (set before first paint by public/theme-boot.js).
+ * Use the tokens (bg-panel, text-ink, border-line, bg-accent, ...), never raw
+ * colors, so every theme keeps working. Paper lives in src/styles/paper.css.
  */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", "Inter", sans-serif;
-  --font-hand: "Caveat", cursive;
+  --font-hand: "Caveat Brush", cursive;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 
-  --color-app: #0f0f11;
-  --color-panel: #16161c;
-  --color-field: #0c0c0e;
-  --color-raise: rgba(255, 255, 255, 0.05);
-  --color-raise-strong: rgba(255, 255, 255, 0.1);
-  --color-ink: #fafafa;
-  --color-ink-soft: #d4d4d8;
-  --color-ink-faint: #a1a1aa;
-  --color-line: rgba(255, 255, 255, 0.08);
-  --color-line-strong: rgba(255, 255, 255, 0.14);
-  --color-accent: #4f46e5;
+  --color-panel: #fbfaf7;
+  --color-field: #ffffff;
+  --color-raise: #ffffff;
+  --color-hover: rgba(0, 0, 0, 0.05);
+  --color-raise-strong: rgba(0, 0, 0, 0.08);
+  --color-ink: #1f1f22;
+  --color-ink-soft: #3a3833;
+  --color-ink-faint: #5c5a55;
+  --color-line: #ece9e2;
+  --color-line-strong: rgba(0, 0, 0, 0.14);
+  --color-accent: #1f1f22;
   --color-accent-ink: #ffffff;
-  --color-accent-soft: #a5b4fc;
-  --color-accent-wash: rgba(129, 140, 248, 0.16);
-  --color-danger: #fca5a5;
-  --color-danger-line: rgba(252, 165, 165, 0.35);
-  --color-danger-fill: #b91c1c;
-  --color-warn-wash: rgba(251, 146, 60, 0.12);
-  --color-warn-line: rgba(251, 146, 60, 0.3);
-  --color-warn-ink: #fed7aa;
-  --color-scrim: rgba(0, 0, 0, 0.45);
-  --color-toast: #fafafa;
-  --color-toast-ink: #18181b;
+  --color-accent-soft: #1f1f22;
+  --color-accent-wash: rgba(31, 31, 34, 0.07);
+  --color-switch-off: #d9d5cc;
+  --color-danger: #8f1d12;
+  --color-danger-line: rgba(143, 29, 18, 0.35);
+  --color-danger-fill: #8f1d12;
+  --color-danger-fill-ink: #ffffff;
+  --color-warn-wash: #fff7d9;
+  --color-warn-line: #f0dc8a;
+  --color-warn-ink: #4f3b00;
+  --color-ok-wash: #e6f4e8;
+  --color-ok-line: #b9dfc0;
+  --color-ok-ink: #1d5a2a;
+  --color-danger-wash: #fde8e6;
+  --color-danger-wash-line: #f3bdb7;
+  --color-scrim: rgba(20, 18, 14, 0.28);
+  --color-scrim-strong: rgba(20, 18, 14, 0.32);
+  --color-toast: #1f1f22;
+  --color-toast-ink: #ffffff;
+  --color-toast-error: #ff7a6e;
+  --color-bar: rgba(255, 255, 255, 0.72);
+  --color-bar-line: rgba(0, 0, 0, 0.06);
+  --color-mark: rgba(242, 214, 10, 0.4);
+  --color-ghost: rgba(255, 255, 255, 0.55);
+  --color-kbd: rgba(0, 0, 0, 0.07);
+
+  --shadow-toast: 0 12px 30px -8px rgba(0, 0, 0, 0.3);
+  --shadow-panel: -30px 0 60px -20px rgba(0, 0, 0, 0.25);
+  --shadow-pop: 0 24px 48px -16px rgba(0, 0, 0, 0.3);
 
   --animate-drawer-in: drawer-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
   --animate-fade-in: fade-in 160ms ease-out;
 }
 
 :root {
-  color-scheme: dark;
-  --board-bg: #0f0f11;
-  --board-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
-  --board-size: 24px 24px;
-  --note-shadow: 0 14px 22px -6px rgba(0, 0, 0, 0.55), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
-  --note-shadow-lift: 0 26px 38px -10px rgba(0, 0, 0, 0.65), 0 8px 12px -4px rgba(0, 0, 0, 0.35);
+  color-scheme: light;
+  --board-bg: radial-gradient(ellipse at 62% 38%, #fdfcfa 0%, #f2f0eb 62%, #e6e2da 100%);
+  --board-base: #f2f0eb;
+  --focus-ring: 3px solid rgba(31, 31, 34, 0.55);
+  --board-backing: transparent;
 }
 
-:root[data-theme="light"] {
-  color-scheme: light;
-  --color-app: #f1f1f3;
-  --color-panel: #ffffff;
-  --color-field: #f4f4f5;
-  --color-raise: rgba(0, 0, 0, 0.045);
-  --color-raise-strong: rgba(0, 0, 0, 0.08);
-  --color-ink: #1a1a1e;
-  --color-ink-soft: #3f3f46;
-  --color-ink-faint: #5f5f68;
-  --color-line: rgba(0, 0, 0, 0.1);
-  --color-line-strong: rgba(0, 0, 0, 0.16);
-  --color-accent: #4f46e5;
-  --color-accent-soft: #4338ca;
-  --color-accent-wash: rgba(79, 70, 229, 0.1);
-  --color-danger: #b91c1c;
-  --color-danger-line: rgba(185, 28, 28, 0.35);
-  --color-warn-wash: rgba(234, 88, 12, 0.08);
-  --color-warn-line: rgba(234, 88, 12, 0.3);
-  --color-warn-ink: #9a3412;
-  --color-scrim: rgba(24, 24, 27, 0.3);
-  --color-toast: #18181b;
-  --color-toast-ink: #fafafa;
-  --board-bg: #f1f1f3;
-  --board-image: radial-gradient(rgba(0, 0, 0, 0.12) 1px, transparent 1px);
-  --note-shadow: 0 12px 18px -8px rgba(0, 0, 0, 0.25), 0 3px 5px -2px rgba(0, 0, 0, 0.12);
-  --note-shadow-lift: 0 22px 32px -10px rgba(0, 0, 0, 0.3), 0 6px 10px -4px rgba(0, 0, 0, 0.15);
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-panel: #1c1c20;
+  --color-field: #26262b;
+  --color-raise: #26262b;
+  --color-hover: rgba(255, 255, 255, 0.07);
+  --color-raise-strong: rgba(255, 255, 255, 0.1);
+  --color-ink: #ededf0;
+  --color-ink-soft: #d4d4d8;
+  --color-ink-faint: #a1a1aa;
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.16);
+  --color-accent: #ededf0;
+  --color-accent-ink: #141416;
+  --color-accent-soft: #ededf0;
+  --color-accent-wash: rgba(237, 237, 240, 0.1);
+  --color-switch-off: #34343b;
+  --color-danger: #ff8a80;
+  --color-danger-line: rgba(255, 138, 128, 0.4);
+  --color-danger-fill: #ff8a80;
+  --color-danger-fill-ink: #141416;
+  --color-warn-wash: rgba(250, 204, 21, 0.1);
+  --color-warn-line: rgba(250, 204, 21, 0.28);
+  --color-warn-ink: #fde68a;
+  --color-ok-wash: rgba(74, 222, 128, 0.12);
+  --color-ok-line: rgba(74, 222, 128, 0.3);
+  --color-ok-ink: #a7f3c0;
+  --color-danger-wash: rgba(255, 138, 128, 0.12);
+  --color-danger-wash-line: rgba(255, 138, 128, 0.3);
+  --color-scrim: rgba(0, 0, 0, 0.5);
+  --color-scrim-strong: rgba(0, 0, 0, 0.55);
+  --color-toast: #ededf0;
+  --color-toast-ink: #141416;
+  --color-toast-error: #d93036;
+  --color-bar: rgba(22, 22, 25, 0.82);
+  --color-bar-line: rgba(255, 255, 255, 0.07);
+  --color-mark: rgba(242, 214, 10, 0.3);
+  --color-ghost: rgba(255, 255, 255, 0.04);
+  --color-kbd: rgba(255, 255, 255, 0.1);
+  --shadow-toast: 0 12px 30px -8px rgba(0, 0, 0, 0.8);
+  --shadow-panel: -30px 0 60px -20px rgba(0, 0, 0, 0.7);
+  --shadow-pop: 0 24px 48px -16px rgba(0, 0, 0, 0.7);
+  --board-bg: radial-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1.3px) 0 0 / 4px 4px,
+    radial-gradient(ellipse at 62% 38%, #27272c 0%, #18181b 62%, #101012 100%);
+  --board-base: #18181b;
+  --focus-ring: 3px solid rgba(237, 237, 240, 0.6);
 }
 
 :root[data-theme="midnight"] {
-  --color-app: #000000;
-  --color-panel: #0d0d0d;
-  --color-field: #050505;
-  --color-ink: #e5e5e5;
-  --color-ink-soft: #c4c4c4;
-  --color-ink-faint: #a3a3a3;
-  --color-line: rgba(255, 255, 255, 0.07);
-  --color-accent: #4338ca;
-  --color-accent-soft: #a5b4fc;
-  --color-accent-wash: rgba(99, 102, 241, 0.14);
+  color-scheme: dark;
+  --color-panel: #0b0b0d;
+  --color-field: #161619;
+  --color-raise: #161619;
+  --color-hover: rgba(255, 255, 255, 0.07);
+  --color-raise-strong: rgba(255, 255, 255, 0.1);
+  --color-ink: #ededf0;
+  --color-ink-soft: #c9c9cf;
+  --color-ink-faint: #9a9aa3;
+  --color-line: rgba(255, 255, 255, 0.08);
+  --color-line-strong: rgba(255, 255, 255, 0.16);
+  --color-accent: #8ab4f8;
+  --color-accent-ink: #0b1220;
+  --color-accent-soft: #8ab4f8;
+  --color-accent-wash: rgba(138, 180, 248, 0.16);
+  --color-switch-off: #2e2e34;
+  --color-danger: #ff8a80;
+  --color-danger-line: rgba(255, 138, 128, 0.4);
+  --color-danger-fill: #ff8a80;
+  --color-danger-fill-ink: #141416;
+  --color-warn-wash: rgba(250, 204, 21, 0.1);
+  --color-warn-line: rgba(250, 204, 21, 0.28);
+  --color-warn-ink: #fde68a;
+  --color-ok-wash: rgba(74, 222, 128, 0.12);
+  --color-ok-line: rgba(74, 222, 128, 0.3);
+  --color-ok-ink: #a7f3c0;
+  --color-danger-wash: rgba(255, 138, 128, 0.12);
+  --color-danger-wash-line: rgba(255, 138, 128, 0.3);
+  --color-scrim: rgba(0, 0, 0, 0.6);
+  --color-scrim-strong: rgba(0, 0, 0, 0.6);
+  --color-toast: #ededf0;
+  --color-toast-ink: #141416;
+  --color-toast-error: #d93036;
+  --color-bar: #000000;
+  --color-bar-line: rgba(255, 255, 255, 0.08);
+  --color-mark: rgba(138, 180, 248, 0.3);
+  --color-ghost: rgba(255, 255, 255, 0.05);
+  --color-kbd: rgba(255, 255, 255, 0.1);
+  --shadow-toast: 0 12px 30px -8px rgba(0, 0, 0, 0.8);
+  --shadow-panel: -30px 0 60px -20px rgba(0, 0, 0, 0.8);
+  --shadow-pop: 0 24px 48px -16px rgba(0, 0, 0, 0.8);
   --board-bg: #000000;
-  --board-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-  --note-shadow: 0 12px 18px -8px rgba(0, 0, 0, 0.9);
+  --board-base: #000000;
+  --focus-ring: 3px solid #8ab4f8;
 }
 
 :root[data-theme="cork"] {
   color-scheme: light;
-  --color-app: #b98a5e;
-  --color-panel: #f6efe4;
-  --color-field: #efe4d3;
-  --color-raise: rgba(43, 29, 18, 0.06);
-  --color-raise-strong: rgba(43, 29, 18, 0.1);
-  --color-ink: #2b1d12;
+  --color-panel: #fff8ee;
+  --color-field: #f3e6d2;
+  --color-raise: #f3e6d2;
+  --color-hover: rgba(58, 36, 20, 0.08);
+  --color-raise-strong: rgba(58, 36, 20, 0.12);
+  --color-ink: #2a1b0e;
   --color-ink-soft: #4a3424;
-  --color-ink-faint: #5a4030;
-  --color-line: rgba(43, 29, 18, 0.15);
-  --color-line-strong: rgba(43, 29, 18, 0.24);
-  --color-accent: #9a3412;
-  --color-accent-soft: #7c2d12;
-  --color-accent-wash: rgba(154, 52, 18, 0.12);
-  --color-danger: #991b1b;
-  --color-danger-line: rgba(153, 27, 27, 0.35);
-  --color-warn-wash: rgba(154, 52, 18, 0.08);
-  --color-warn-line: rgba(154, 52, 18, 0.3);
-  --color-warn-ink: #7c2d12;
-  --color-scrim: rgba(43, 29, 18, 0.35);
-  --color-toast: #2b1d12;
-  --color-toast-ink: #f6efe4;
-  --board-bg: #b98a5e;
-  --board-image: radial-gradient(rgba(70, 38, 14, 0.35) 1.2px, transparent 1.4px),
-    radial-gradient(rgba(255, 236, 205, 0.25) 1px, transparent 1.2px);
-  --board-size: 9px 9px, 13px 13px;
-  --note-shadow: 0 12px 18px -8px rgba(60, 30, 10, 0.55), 0 3px 5px -2px rgba(60, 30, 10, 0.3);
-  --note-shadow-lift: 0 24px 34px -10px rgba(60, 30, 10, 0.6), 0 6px 10px -4px rgba(60, 30, 10, 0.3);
+  --color-ink-faint: #6b5440;
+  --color-line: rgba(60, 30, 10, 0.15);
+  --color-line-strong: rgba(60, 30, 10, 0.25);
+  --color-accent: #3a2414;
+  --color-accent-ink: #fff8ee;
+  --color-accent-soft: #3a2414;
+  --color-accent-wash: rgba(58, 36, 20, 0.1);
+  --color-switch-off: #e0cdb2;
+  --color-danger: #8f1d12;
+  --color-danger-line: rgba(143, 29, 18, 0.35);
+  --color-danger-fill: #8f1d12;
+  --color-danger-fill-ink: #ffffff;
+  --color-warn-wash: #fff3cc;
+  --color-warn-line: #e8cf7f;
+  --color-warn-ink: #4a3500;
+  --color-ok-wash: #e4f0dc;
+  --color-ok-line: #b5d3a3;
+  --color-ok-ink: #1f4f1f;
+  --color-danger-wash: #fbe3dc;
+  --color-danger-wash-line: #eab4a6;
+  --color-scrim: rgba(40, 20, 5, 0.35);
+  --color-scrim-strong: rgba(40, 20, 5, 0.35);
+  --color-toast: #1f1f22;
+  --color-toast-ink: #ffffff;
+  --color-toast-error: #ff7a6e;
+  --color-bar: rgba(255, 248, 238, 0.9);
+  --color-bar-line: rgba(60, 30, 10, 0.15);
+  --color-ghost: rgba(255, 248, 238, 0.4);
+  --color-kbd: rgba(58, 36, 20, 0.1);
+  --board-bg: radial-gradient(rgba(70, 38, 14, 0.32) 1px, transparent 1.4px) 0 0 / 6px 6px,
+    radial-gradient(rgba(255, 228, 190, 0.3) 1px, transparent 1.5px) 3px 3px / 7px 7px,
+    radial-gradient(ellipse at 50% 40%, #c4966a, #a9784c);
+  --board-base: #a9784c;
+  --focus-ring: 3px solid rgba(58, 36, 20, 0.6);
+  --board-backing: rgba(255, 248, 238, 0.78);
 }
 
-/* Text sitting straight on the cork board needs deeper ink to keep 4.5:1 contrast. */
-:root[data-theme="cork"] .on-board {
-  --color-ink: #24180e;
-  --color-ink-faint: #3b2716;
-  --color-ink-soft: #2b1d12;
-  --color-raise: rgba(43, 29, 18, 0.12);
+/* Paper on the board (AC-21): darker paper colours on Dark and Midnight, deeper shadows on Dark, Midnight and Cork. */
+:root[data-theme="dark"],
+:root[data-theme="midnight"] {
+  --paper-glue: rgba(0, 0, 0, 0.05);
+  --paper-sheen-hi: rgba(255, 255, 255, 0.2);
+  --paper-sheen-lo: rgba(0, 0, 0, 0.08);
+  --note-drop: 0 1px 1px rgba(0, 0, 0, 0.4), -10px 16px 20px -10px rgba(0, 0, 0, 0.85);
+  --note-drop-lift: 0 1px 1px rgba(0, 0, 0, 0.4), -12px 22px 26px -12px rgba(0, 0, 0, 0.9);
+  --note-curl: rgba(0, 0, 0, 0.65);
+  --note-curl-side: rgba(0, 0, 0, 0.4);
+  --curl-b-left: -8px;
+  --curl-b-bottom: -5px;
+  --curl-b-w: 76%;
+  --curl-b-h: 30px;
+  --curl-b-blur: 12px;
+  --curl-l-left: -9px;
+  --curl-l-w: 20px;
+  --curl-l-h: 76%;
+  --curl-l-blur: 10px;
+  --pin-shadow: rgba(0, 0, 0, 0.5);
+}
+:root[data-theme="dark"] {
+  --paper-yellow: #ebe190;
+  --paper-blue: #85bdeb;
+  --paper-green: #85d09a;
+  --paper-pink: #ebb1df;
+  --paper-purple: #cdb3eb;
+  --paper-orange: #edbb71;
+  --paper-mint: #7dcddd;
+  --paper-cream: #e0ddd6;
+}
+:root[data-theme="midnight"] {
+  --paper-yellow: #dfd588;
+  --paper-blue: #7eb3df;
+  --paper-green: #7ec592;
+  --paper-pink: #dfa7d3;
+  --paper-purple: #c2a9df;
+  --paper-orange: #e0b16b;
+  --paper-mint: #76c2d1;
+  --paper-cream: #d4d1ca;
+}
+:root[data-theme="cork"] {
+  --note-drop: 0 1px 1px rgba(60, 30, 10, 0.15), -8px 12px 16px -8px rgba(60, 30, 10, 0.7);
+  --note-drop-lift: 0 1px 1px rgba(60, 30, 10, 0.15), -12px 22px 26px -12px rgba(60, 30, 10, 0.75);
+  --note-curl: rgba(60, 30, 10, 0.4);
+  --note-curl-side: rgba(60, 30, 10, 0.22);
+}
+
+/* Caveat Brush, bundled, never the fallback first (AC-7). */
+@font-face {
+  font-family: "Caveat Brush";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("../node_modules/@fontsource/caveat-brush/files/caveat-brush-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Caveat Brush";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("../node_modules/@fontsource/caveat-brush/files/caveat-brush-latin-ext-400-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
 html,
 body {
   margin: 0;
-  background: var(--board-bg);
+  background-color: var(--board-base);
 }
 
 body {
@@ -145,31 +286,42 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.board-surface {
-  background-color: var(--board-bg);
-  background-image: var(--board-image);
-  background-size: var(--board-size);
+@layer base {
+  /* Layered so a component's own focus style (an underline on paper) can replace it. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent-soft);
+    outline-offset: 2px;
+  }
+  /* Every heading uses Inter Bold (spec 0003, AC-19); utilities can still override. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+  }
 }
 
+.board-surface {
+  background: var(--board-bg);
+  background-color: var(--board-base);
+  background-attachment: fixed;
+}
+
+/* Text placed straight on the board: a soft backing on Cork keeps 4.5:1 (AC-22). */
+.board-backing {
+  background: var(--board-backing);
+  border-radius: 12px;
+}
+
+/* Handwriting in fields (editor, drafts): Inter when "Handwriting on notes" is off. */
 .font-hand {
   font-family: var(--font-hand);
+  font-weight: 400;
 }
 :root.no-handwriting .font-hand {
   font-family: var(--font-sans);
   font-weight: 600;
-  font-size: 0.68em;
-  line-height: 1.25;
 }
-
-/* Paper colors: a soft gradient with dark ink that passes contrast. */
-.paper-yellow { background: linear-gradient(135deg, #fef08a 0%, #fde047 100%); color: #422006; --pin: #e11d48; }
-.paper-blue { background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%); color: #1e3a8a; --pin: #16a34a; }
-.paper-green { background: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%); color: #14532d; --pin: #e11d48; }
-.paper-pink { background: linear-gradient(135deg, #fbcfe8 0%, #f9a8d4 100%); color: #701a75; --pin: #2563eb; }
-.paper-purple { background: linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 100%); color: #581c87; --pin: #f59e0b; }
-.paper-orange { background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%); color: #7c2d12; --pin: #2563eb; }
-.paper-mint { background: linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%); color: #115e59; --pin: #e11d48; }
-.paper-cream { background: linear-gradient(135deg, #fafaf9 0%, #f5f5f4 100%); color: #292524; --pin: #16a34a; }
 
 .note-scroll {
   scrollbar-width: thin;
@@ -185,9 +337,9 @@ body {
   opacity: 1;
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-accent-soft);
-  outline-offset: 2px;
+.focus-ring {
+  outline: var(--focus-ring);
+  outline-offset: 5px;
 }
 
 @keyframes drawer-in {
@@ -199,8 +351,8 @@ body {
   to { opacity: 1; }
 }
 @keyframes pin-drop {
-  0% { transform: translateY(-14px) scale(1.06); opacity: 0; }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
+  0% { translate: 0 -14px; scale: 1.06; opacity: 0; }
+  100% { translate: 0 0; scale: 1; opacity: 1; }
 }
 .animate-pin-drop {
   animation: pin-drop 220ms cubic-bezier(0.2, 0.8, 0.2, 1);

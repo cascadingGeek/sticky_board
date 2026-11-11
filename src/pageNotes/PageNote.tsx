@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { Minus, Plus, Trash2, X } from 'lucide-react';
+import { GripVertical, Minus, Plus, Trash2, X } from 'lucide-react';
+import { Pin } from '../components/Pin';
+import { tiltFor } from '../lib/board';
 import { clampHeight, clampWidth, collapsedLabel, noteHeight, noteWidth, type PagePatch } from '../lib/pageNotes';
-import { SUBTASKS_MAX, TITLE_MAX, type Note, type Subtask } from '../types';
+import { DESCRIPTION_MAX, SUBTASKS_MAX, TITLE_MAX, type Note, type Subtask } from '../types';
 import { newId } from './ids';
 
 const SAVE_DELAY = 500; // AC-8: saved within 1 second of when you stop typing
@@ -157,17 +159,22 @@ export function PageNote({ note, x, y, allowed, onPatch, onTrash, onAllow }: Pag
     setLive(null);
   };
 
+  const tilt = tiltFor(note.id);
+
   if (note.collapsed) {
     return (
       <button
         type="button"
-        className={`sb-tab paper-${note.noteColor}`}
-        style={{ left, top, zIndex: note.z }}
+        className={`sb-tab paper-note paper-${note.noteColor}`}
+        style={{ left, top, zIndex: note.z, transform: `rotate(${tilt}deg)` }}
         aria-label={`Open note: ${note.title}`}
         title={note.title}
         onClick={() => onPatch({ collapsed: false })}
       >
-        {collapsedLabel(note.title)}
+        <span className="paper" aria-hidden="true">
+          <Pin noteId={note.id} style={{ left: 19, top: 17, transform: 'scale(0.8)' }} />
+        </span>
+        <span className="sb-tab-label">{collapsedLabel(note.title)}</span>
       </button>
     );
   }
@@ -176,140 +183,152 @@ export function PageNote({ note, x, y, allowed, onPatch, onTrash, onAllow }: Pag
 
   return (
     <section
-      className={`sb-note paper-${note.noteColor} ${lifted ? 'sb-lifted' : ''}`}
+      className={`sb-note paper-note paper-${note.noteColor} ${lifted ? 'sb-lifted' : ''}`}
       aria-label={`Sticky note: ${note.title}`}
-      style={{ left, top, width: w, height: h, zIndex: lifted ? 100000 : note.z }}
+      style={{
+        left,
+        top,
+        width: w,
+        height: h,
+        zIndex: lifted ? 100000 : note.z,
+        transform: lifted ? 'translateY(-4px)' : `rotate(${tilt}deg)`,
+      }}
     >
-      <div
-        className="sb-bar"
-        onPointerDown={start('move')}
-        onPointerMove={move}
-        onPointerUp={end}
-        onPointerCancel={cancel}
-        title="Drag to move"
-      >
-        <span className="sb-grip" aria-hidden="true" />
-        <button type="button" className="sb-icon" aria-label={`Collapse ${note.title}`} title="Collapse" onClick={() => onPatch({ collapsed: true })}>
-          <Minus size={14} aria-hidden="true" />
-        </button>
-        <button type="button" className="sb-icon" aria-label={`Move ${note.title} to Trash`} title="Move to Trash" onClick={onTrash}>
-          <Trash2 size={14} aria-hidden="true" />
-        </button>
-      </div>
-
-      <div className="sb-body">
-        <label className="sb-sr" htmlFor={`sb-title-${note.id}`}>
-          Title
-        </label>
-        <input
-          id={`sb-title-${note.id}`}
-          className="sb-field sb-title"
-          value={title}
-          maxLength={TITLE_MAX}
-          onChange={e => changeTitle(e.target.value)}
-          onFocus={() => focusOn('title')}
-          onBlur={onBlur}
-          onKeyDown={e => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              descRef.current?.focus();
-            }
-          }}
-        />
-        <label className="sb-sr" htmlFor={`sb-details-${note.id}`}>
-          Details
-        </label>
-        <textarea
-          id={`sb-details-${note.id}`}
-          ref={descRef}
-          rows={1}
-          className="sb-field sb-details"
-          placeholder="Details…"
-          value={description}
-          maxLength={5000}
-          onChange={e => {
-            setDescription(e.target.value);
-            queue({ description: e.target.value });
-          }}
-          onFocus={() => focusOn('description')}
-          onBlur={onBlur}
-        />
-
-        <ul className="sb-list" aria-label="Checklist">
-          {subtasks.map(s => (
-            <li key={s.id} className={`sb-item ${s.isCompleted ? 'sb-done' : ''}`}>
-              <input
-                type="checkbox"
-                checked={s.isCompleted}
-                aria-label={`Done: ${s.title || 'item'}`}
-                onChange={() => changeSubtasks(subtasks.map(x => (x.id === s.id ? { ...x, isCompleted: !x.isCompleted } : x)))}
-                onFocus={() => focusOn('subtasks')}
-                onBlur={onBlur}
-              />
-              <input
-                className="sb-field"
-                value={s.title}
-                maxLength={TITLE_MAX}
-                aria-label="Checklist item"
-                onChange={e => changeSubtasks(subtasks.map(x => (x.id === s.id ? { ...x, title: e.target.value } : x)))}
-                onFocus={() => focusOn('subtasks')}
-                onBlur={onBlur}
-              />
-              <button
-                type="button"
-                className="sb-icon"
-                aria-label={`Remove ${s.title || 'item'}`}
-                onClick={() => changeSubtasks(subtasks.filter(x => x.id !== s.id))}
-                onFocus={() => focusOn('subtasks')}
-                onBlur={onBlur}
-              >
-                <X size={12} aria-hidden="true" />
-              </button>
-            </li>
-          ))}
-          {subtasks.length < SUBTASKS_MAX && (
-            <li className="sb-item">
-              <Plus size={14} aria-hidden="true" style={{ flex: 'none', opacity: 0.7 }} />
-              <input
-                className="sb-field"
-                value={newItem}
-                placeholder="Add an item"
-                aria-label="Add a checklist item"
-                maxLength={TITLE_MAX}
-                onChange={e => setNewItem(e.target.value)}
-                onFocus={() => focusOn('subtasks')}
-                onBlur={onBlur}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && newItem.trim()) {
-                    e.preventDefault();
-                    changeSubtasks([...subtasks, { id: newId(), title: newItem.trim(), isCompleted: false }]);
-                    setNewItem('');
-                  }
-                }}
-              />
-            </li>
-          )}
-        </ul>
-      </div>
-
-      {!allowed && (
-        <div className="sb-allow" role="note">
-          <span>Show this note when you come back?</span>
-          <button type="button" className="sb-btn" onClick={onAllow}>
-            Allow
+      <div className="paper">
+        <Pin noteId={note.id} />
+        <div
+          className="sb-bar"
+          onPointerDown={start('move')}
+          onPointerMove={move}
+          onPointerUp={end}
+          onPointerCancel={cancel}
+          title="Drag to move"
+        >
+          <span className="sb-grip" aria-hidden="true">
+            <GripVertical size={14} />
+          </span>
+          <button type="button" className="sb-icon" aria-label={`Collapse ${note.title}`} title="Collapse" onClick={() => onPatch({ collapsed: true })}>
+            <Minus size={14} aria-hidden="true" />
+          </button>
+          <button type="button" className="sb-icon" aria-label={`Move ${note.title} to Trash`} title="Move to Trash" onClick={onTrash}>
+            <Trash2 size={14} aria-hidden="true" />
           </button>
         </div>
-      )}
 
-      <span
-        className="sb-resize"
-        role="presentation"
-        title="Drag to resize"
-        onPointerDown={start('resize')}
-        onPointerMove={move}
-        onPointerUp={end}
-        onPointerCancel={cancel}
-      />
+        <div className="sb-body">
+          <label className="sb-sr" htmlFor={`sb-title-${note.id}`}>
+            Title
+          </label>
+          <input
+            id={`sb-title-${note.id}`}
+            className="sb-field sb-title"
+            value={title}
+            maxLength={TITLE_MAX}
+            onChange={e => changeTitle(e.target.value)}
+            onFocus={() => focusOn('title')}
+            onBlur={onBlur}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                descRef.current?.focus();
+              }
+            }}
+          />
+          <label className="sb-sr" htmlFor={`sb-details-${note.id}`}>
+            Details
+          </label>
+          <textarea
+            id={`sb-details-${note.id}`}
+            ref={descRef}
+            rows={1}
+            className="sb-field sb-details"
+            placeholder="Details…"
+            value={description}
+            maxLength={DESCRIPTION_MAX}
+            onChange={e => {
+              setDescription(e.target.value);
+              queue({ description: e.target.value });
+            }}
+            onFocus={() => focusOn('description')}
+            onBlur={onBlur}
+          />
+
+          <ul className="sb-list" aria-label="Checklist">
+            {subtasks.map(s => (
+              <li key={s.id} className={`sb-item ${s.isCompleted ? 'sb-done' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={s.isCompleted}
+                  aria-label={`Done: ${s.title || 'item'}`}
+                  onChange={() => changeSubtasks(subtasks.map(x => (x.id === s.id ? { ...x, isCompleted: !x.isCompleted } : x)))}
+                  onFocus={() => focusOn('subtasks')}
+                  onBlur={onBlur}
+                />
+                <input
+                  className="sb-field"
+                  value={s.title}
+                  maxLength={TITLE_MAX}
+                  aria-label="Checklist item"
+                  onChange={e => changeSubtasks(subtasks.map(x => (x.id === s.id ? { ...x, title: e.target.value } : x)))}
+                  onFocus={() => focusOn('subtasks')}
+                  onBlur={onBlur}
+                />
+                <button
+                  type="button"
+                  className="sb-icon"
+                  aria-label={`Remove ${s.title || 'item'}`}
+                  onClick={() => changeSubtasks(subtasks.filter(x => x.id !== s.id))}
+                  onFocus={() => focusOn('subtasks')}
+                  onBlur={onBlur}
+                >
+                  <X size={12} aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+            {subtasks.length < SUBTASKS_MAX && (
+              <li className="sb-item">
+                <Plus size={14} aria-hidden="true" style={{ flex: 'none', opacity: 0.7 }} />
+                <input
+                  className="sb-field"
+                  value={newItem}
+                  placeholder="Add an item"
+                  aria-label="Add a checklist item"
+                  maxLength={TITLE_MAX}
+                  onChange={e => setNewItem(e.target.value)}
+                  onFocus={() => focusOn('subtasks')}
+                  onBlur={onBlur}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newItem.trim()) {
+                      e.preventDefault();
+                      changeSubtasks([...subtasks, { id: newId(), title: newItem.trim(), isCompleted: false }]);
+                      setNewItem('');
+                    }
+                  }}
+                />
+              </li>
+            )}
+          </ul>
+        </div>
+
+        {!allowed && (
+          <div className="sb-strip" role="note">
+            <span>Show this note when you come back?</span>
+            <button type="button" className="sb-btn" onClick={onAllow}>
+              Allow
+            </button>
+          </div>
+        )}
+
+        <span
+          className="sb-resize"
+          role="presentation"
+          title="Drag to resize"
+          onPointerDown={start('resize')}
+          onPointerMove={move}
+          onPointerUp={end}
+          onPointerCancel={cancel}
+        />
+      </div>
     </section>
   );
 }

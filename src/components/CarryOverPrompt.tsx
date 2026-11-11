@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
-import { isActive } from '../lib/board';
-import { shortDay, weekdayName } from '../lib/dates';
+import { isActive, tiltFor } from '../lib/board';
+import { formatTime, shortDay, weekdayName } from '../lib/dates';
 import { boardNotes } from '../lib/pageNotes';
-import { meta as metaStore, notes as noteStore } from '../lib/storage';
-import type { Note } from '../types';
+import { countOnDay, meta as metaStore, notes as noteStore } from '../lib/storage';
+import { DAY_NOTE_LIMIT, type Note } from '../types';
 
 interface Offer {
   forDay: string; // the "today" this offer was made for
@@ -59,6 +59,12 @@ export function CarryOverPrompt() {
     setBusy(true);
     try {
       const fresh = await noteStore.getAll();
+      // Today holds at most DAY_NOTE_LIMIT notes: carry none rather than some at random.
+      const room = DAY_NOTE_LIMIT - countOnDay(fresh, today);
+      if (ids.length > room) {
+        toast(room > 0 ? `Today has room for ${room} more ${room === 1 ? 'note' : 'notes'}. Untick some and try again.` : 'Today already has 50 notes, so nothing was carried over.', 'error');
+        return;
+      }
       const byId = new Map(fresh.map(n => [n.id, n]));
       const now = new Date().toISOString();
       const writes: Note[] = [];
@@ -93,16 +99,19 @@ export function CarryOverPrompt() {
     <section
       role="dialog"
       aria-labelledby="carry-title"
-      className="absolute top-4 left-1/2 z-[9500] w-[480px] -translate-x-1/2 max-w-[calc(100%-32px)] rounded-[20px] border border-line bg-panel p-6 text-ink shadow-2xl animate-fade-in"
+      className="absolute top-7 left-1/2 z-[9500] w-[480px] max-w-[calc(100%-32px)] -translate-x-1/2 rounded-[20px] border border-line bg-panel p-6 text-ink shadow-pop animate-fade-in"
     >
-      <h2 id="carry-title" className="font-display text-xl font-bold">
+      <h2 id="carry-title" className="m-0 text-[21px] font-bold">
         Bring {day}'s unfinished notes?
       </h2>
-      <p className="mt-1 text-sm text-ink-faint">Copies go on today. {day} keeps the originals.</p>
-      <fieldset className="mt-4 flex flex-col gap-1.5">
+      <p className="mt-1.5 mb-3.5 text-sm text-ink-faint">These weren't ticked off. Copies move to today; the originals stay on {day}.</p>
+      <fieldset className="-mx-3 flex flex-col gap-1 border-0 p-0">
         <legend className="sr-only">Notes to carry over from {shortDay(offer.lastDay)}</legend>
         {offer.candidates.map(n => (
-          <label key={n.id} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl bg-raise px-3 hover:bg-raise-strong">
+          <label
+            key={n.id}
+            className={`flex min-h-[52px] cursor-pointer items-center gap-3 rounded-xl px-3 py-1.5 hover:bg-hover ${selected.has(n.id) ? 'bg-accent-wash' : ''}`}
+          >
             <input
               type="checkbox"
               checked={selected.has(n.id)}
@@ -112,20 +121,24 @@ export function CarryOverPrompt() {
                 else next.delete(n.id);
                 setSelected(next);
               }}
-              className="h-[18px] w-[18px] accent-[var(--color-accent)]"
+              className="m-0 h-[18px] w-[18px] accent-[var(--color-accent)]"
             />
-            <span aria-hidden="true" className={`paper-${n.noteColor} h-3 w-3 flex-none rounded-[3px]`} />
-            <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{n.title}</span>
-            {n.dueTime && <span className="text-xs text-ink-faint">{n.dueTime}</span>}
+            <span
+              aria-hidden="true"
+              className={`paper-${n.noteColor} paper-swatch h-[30px] w-[30px] flex-none shadow-[-3px_4px_5px_-3px_rgba(0,0,0,0.4)]`}
+              style={{ transform: `rotate(${tiltFor(n.id)}deg)` }}
+            />
+            <span className="min-w-0 flex-1 truncate font-hand text-[23px]">{n.title}</span>
+            {n.dueTime && <span className="text-xs text-ink-faint">{formatTime(n.dueTime)}</span>}
           </label>
         ))}
       </fieldset>
-      <div className="mt-5 flex flex-wrap items-center gap-2">
+      <div className="mt-[18px] flex flex-wrap items-center gap-2">
         <button
           type="button"
           disabled={busy || selected.size === 0}
           onClick={() => void carry([...selected])}
-          className="h-11 rounded-[11px] bg-accent px-[18px] text-sm font-semibold text-accent-ink hover:brightness-110 disabled:opacity-50"
+          className="h-11 rounded-xl bg-accent px-[18px] text-sm font-semibold text-accent-ink hover:opacity-90 disabled:opacity-50"
         >
           Carry selected ({selected.size})
         </button>
@@ -133,11 +146,11 @@ export function CarryOverPrompt() {
           type="button"
           disabled={busy}
           onClick={() => void carry(offer.candidates.map(c => c.id))}
-          className="h-11 rounded-[11px] border border-line-strong px-4 text-sm hover:bg-raise disabled:opacity-50"
+          className="h-11 rounded-xl bg-raise-strong px-[18px] text-sm font-semibold hover:bg-hover disabled:opacity-50"
         >
           Carry all
         </button>
-        <button type="button" onClick={() => setOffer(null)} className="ml-auto h-11 px-2.5 text-sm text-ink-faint hover:text-ink">
+        <button type="button" onClick={() => setOffer(null)} className="ml-auto h-11 rounded-xl px-2.5 text-sm font-semibold text-ink-faint hover:text-ink">
           Not today
         </button>
       </div>

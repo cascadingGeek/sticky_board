@@ -9,13 +9,14 @@ import { playSound, type SoundType } from './sounds';
 import { boardNotes } from './pageNotes';
 import {
   createNote as storageCreate,
+  DayFullError,
   meta as metaStore,
   notes as noteStore,
   restoreNote as storageRestore,
   settings as settingsStore,
   type NewNoteInput,
 } from './storage';
-import { DEFAULT_SETTINGS, type Meta, type Note, type ResolvedTheme, type Settings, type ThemeSetting } from '../types';
+import { DAY_FULL_MESSAGE, DEFAULT_SETTINGS, type Meta, type Note, type ResolvedTheme, type Settings, type ThemeSetting } from '../types';
 
 export type DrawerName = 'calendar' | 'trash' | 'settings' | 'pages';
 export interface Toast {
@@ -27,6 +28,8 @@ export interface Toast {
 
 interface StickyBoardContextType {
   loaded: boolean;
+  /** The first load failed: the board shows its error state (spec 0003, AC-12). */
+  loadFailed: boolean;
   /** Day board notes only (page notes are never on the board, spec 0002). */
   notes: Note[];
   /** Every note, board and page: for search, Trash, the Pages drawer and Settings. */
@@ -43,7 +46,8 @@ interface StickyBoardContextType {
   patchMeta: (fields: Partial<Meta>) => Promise<void>;
 
   createNote: (input: NewNoteInput) => Promise<Note | null>;
-  patchNote: (id: string, fields: Partial<Note>) => Promise<boolean>;
+  /** `errorMessage` replaces the default error toast text (the editor keeps your text, so it says so); `null` shows no toast. */
+  patchNote: (id: string, fields: Partial<Note>, errorMessage?: string | null) => Promise<boolean>;
   trashNote: (id: string) => Promise<void>;
   restoreNote: (id: string) => Promise<void>;
   deleteForever: (ids: string[]) => Promise<void>;
@@ -81,6 +85,7 @@ const readHashDate = (): string | null => {
 
 export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [noteMap, setNoteMap] = useState<Map<string, Note>>(new Map());
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [meta, setMeta] = useState<Meta>({ schemaVersion: 1 });
@@ -108,7 +113,8 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const toast = useCallback((message: string, tone: Toast['tone'] = 'info', action?: Toast['action']) => {
     const id = ++toastId.current;
     setToasts(t => [...t, { id, message, tone, action }]);
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), action ? 6000 : 4000);
+    // Errors stay until dismissed (spec 0003, AC-17); the rest fade.
+    if (tone !== 'error') setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), action ? 6000 : 4000);
   }, []);
   const dismissToast = useCallback((id: number) => setToasts(t => t.filter(x => x.id !== id)), []);
 
@@ -138,8 +144,8 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
       })
       .catch(() => {
         if (!cancelled) {
+          setLoadFailed(true);
           setLoaded(true);
-          toast("Couldn't load your notes. Try reopening the tab.", 'error');
         }
       });
     return () => {
@@ -261,13 +267,13 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setNoteMap(prev => new Map(prev).set(note.id, note));
       sound('pop');
       return note;
-    } catch {
-      toast("Couldn't save the note. Your text is still here, try again.", 'error');
+    } catch (e) {
+      toast(e instanceof DayFullError ? DAY_FULL_MESSAGE : "Couldn't save the note. Your text is still here, try again.", 'error');
       return null;
     }
   }, [sound, toast]);
 
-  const patchNote = useCallback(async (id: string, fields: Partial<Note>) => {
+  const patchNote = useCallback(async (id: string, fields: Partial<Note>, errorMessage?: string | null) => {
     const before = noteMapRef.current.get(id);
     if (!before) return false;
     const optimistic = { ...before, ...fields, updatedAt: new Date().toISOString() } as Note;
@@ -292,7 +298,7 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
         return next;
       });
     }
-    if (!ok) toast("Couldn't save that change, so it was undone.", 'error');
+    if (!ok && errorMessage !== null) toast(errorMessage ?? "Couldn't save that change, so it was undone.", 'error');
     return ok;
   }, [toast]);
 
@@ -308,12 +314,16 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [patchNote, sound, toast]);
 
-  /** Takes a note out of Trash; a full page (50 notes) refuses it (spec 0002 AC-10). */
+  /** Takes a note out of Trash; a full page or a full day (50 notes) refuses it (spec 0002 AC-10). */
   const restoreNote = useCallback(async (id: string) => {
     try {
       const r = await storageRestore(id);
       if (r === 'limit') {
         toast('This page already has 50 notes.', 'error');
+        return;
+      }
+      if (r === 'day-full') {
+        toast(DAY_FULL_MESSAGE, 'error');
         return;
       }
       if (r) {
@@ -362,6 +372,7 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const value: StickyBoardContextType = {
     loaded,
+    loadFailed,
     notes,
     allNotes,
     settings,

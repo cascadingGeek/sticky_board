@@ -1,233 +1,452 @@
-import { useRef, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { AlertCircle, Check, Plus, Trash2, X } from 'lucide-react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
 import { useFocusTrap, useScrollLock } from '../lib/useFocusTrap';
-import { isDateStr } from '../lib/dates';
-import { DESCRIPTION_MAX, SUBTASKS_MAX, TITLE_MAX, type Note, type Subtask } from '../types';
+import { formatTime, isDateStr } from '../lib/dates';
+import { isActive } from '../lib/board';
+import { DAY_NOTE_LIMIT, DESCRIPTION_MAX, SUBTASKS_MAX, TITLE_MAX, type Note, type Subtask } from '../types';
+import { Pin } from './Pin';
 
-const field = 'rounded-[10px] border border-line-strong bg-field px-3.5 text-ink outline-none focus:border-accent-soft';
+/** Saved 500 ms after you stop typing (the same delay as notes on websites). */
+export const EDITOR_SAVE_DELAY = 500;
+const SAVE_ERROR = "Couldn't save the note. Your text is still here, try again.";
 
-/** Editor for one note: Title, Details, Checklist, Day, Due time with Remind. */
+interface Values {
+  title: string;
+  description: string;
+  subtasks: Subtask[];
+  dateStr: string;
+  dueTime: string; // '' when there is none
+  remind: boolean;
+}
+
+const valuesOf = (n: Note): Values => ({
+  title: n.title,
+  description: n.description,
+  subtasks: n.subtasks,
+  dateStr: n.dateStr,
+  dueTime: n.dueTime ?? '',
+  remind: n.remind && !!n.dueTime,
+});
+
+/**
+ * The checklist to save. A closing save drops emptied items. A timed save
+ * keeps an emptied item at its last saved text (you may be retyping it) and
+ * leaves out a new item that is still empty (spec 0003, AC-27).
+ */
+const checklistToSave = (items: Subtask[], saved: Subtask[], closing: boolean): Subtask[] => {
+  const savedById = new Map(saved.map(s => [s.id, s]));
+  const out: Subtask[] = [];
+  for (const s of items) {
+    const title = s.title.trim();
+    if (title) out.push({ ...s, title });
+    else if (!closing && savedById.has(s.id)) out.push(savedById.get(s.id)!);
+  }
+  return out;
+};
+
+/** Only the fields that differ from what the editor last saved; never an empty title, an invalid day or a full day. */
+const changedFields = (v: Values, saved: Values, closing: boolean, dayFull: (d: string) => boolean): Partial<Note> => {
+  const fields: Partial<Note> = {};
+  const title = v.title.trim();
+  if (title && title !== saved.title) fields.title = title;
+  if (v.description !== saved.description) fields.description = v.description;
+  const list = checklistToSave(v.subtasks, saved.subtasks, closing);
+  if (JSON.stringify(list) !== JSON.stringify(saved.subtasks)) fields.subtasks = list;
+  if (isDateStr(v.dateStr) && v.dateStr !== saved.dateStr && !dayFull(v.dateStr)) fields.dateStr = v.dateStr;
+  if (v.dueTime !== saved.dueTime) fields.dueTime = v.dueTime || undefined;
+  if (v.remind !== saved.remind) fields.remind = v.remind;
+  if ('dateStr' in fields || 'dueTime' in fields) fields.remindedAt = undefined; // a new time can remind again
+  return fields;
+};
+
+const label = 'text-xs font-semibold text-[var(--paper-ink)]';
+const lineField = 'w-full border-0 border-b-[1.5px] border-solid border-[var(--paper-line)] bg-transparent p-0 text-[var(--paper-ink)] outline-none placeholder:text-[var(--paper-ink)] placeholder:opacity-45 focus-visible:border-[var(--paper-ink)] focus-visible:outline-none';
+const box = 'h-10 w-full rounded-[10px] border border-solid border-[var(--paper-box-line)] bg-[var(--paper-box)] px-3 text-sm text-[var(--paper-ink)] outline-none focus-visible:border-[var(--paper-ink)]';
+const errorText = 'm-0 flex items-center gap-1.5 text-[13px] font-semibold text-[var(--paper-danger)]';
+
+/**
+ * The note editor (spec 0003, AC-14 and AC-27): the note's own paper, saving
+ * as you type. Done, the close button, Esc and the scrim send any waiting
+ * change and close; there is no Cancel.
+ */
 export function NoteEditor({ note }: { note: Note }) {
-  const { setEditorId, patchNote, trashNote } = useStickyBoard();
-  const ref = useRef<HTMLFormElement>(null);
+  const { notes, setEditorId, patchNote, trashNote } = useStickyBoard();
+  // Moving the note to another day needs room there (DAY_NOTE_LIMIT).
+  const isFull = (list: Note[], d: string) => d !== note.dateStr && list.filter(n => n.dateStr === d && isActive(n) && n.id !== note.id).length >= DAY_NOTE_LIMIT;
+  const notesRef = useRef(notes);
+  useLayoutEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
+  const dayFull = (d: string) => isFull(notesRef.current, d);
+  const ref = useRef<HTMLElement>(null);
   useFocusTrap(ref);
   useScrollLock();
 
-  const [title, setTitle] = useState(note.title);
-  const [description, setDescription] = useState(note.description);
-  const [subtasks, setSubtasks] = useState<Subtask[]>(note.subtasks);
+  const [values, setValuesState] = useState<Values>(() => valuesOf(note));
   const [newItem, setNewItem] = useState('');
-  const [dateStr, setDateStr] = useState(note.dateStr);
-  const [dueTime, setDueTime] = useState(note.dueTime ?? '');
-  const [remind, setRemind] = useState(note.remind && !!note.dueTime);
-  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(0); // writes waiting or running
+  const [failed, setFailed] = useState(false);
+  const [closeArmed, setCloseArmed] = useState(false); // after a failed save, the next close leaves anyway
+  const [dayTouched, setDayTouched] = useState(false);
+  const [closeTried, setCloseTried] = useState(false);
+
+  // Refs so saves read the latest values even from event handlers that run before a re-render.
+  const live = useRef(values);
+  const saved = useRef<Values>(valuesOf(note));
+  const newItemRef = useRef('');
+  const failedRef = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chain = useRef<Promise<boolean>>(Promise.resolve(true));
+  const gone = useRef(false);
+
+  const setValues = useCallback((fields: Partial<Values>) => {
+    live.current = { ...live.current, ...fields };
+    setValuesState(live.current);
+  }, []);
+  const setFailedBoth = (v: boolean) => {
+    failedRef.current = v;
+    setFailed(v);
+  };
+
+  /** One save. Runs only after the previous one finished (see `enqueue`). */
+  const saveNow = async (closing: boolean, silent: boolean): Promise<boolean> => {
+    if (gone.current) return true;
+    const fields = changedFields(live.current, saved.current, closing, dayFull);
+    if (!Object.keys(fields).length) return true;
+    const sent = { ...saved.current };
+    if ('title' in fields) sent.title = fields.title!;
+    if ('description' in fields) sent.description = fields.description!;
+    if ('subtasks' in fields) sent.subtasks = fields.subtasks!;
+    if ('dateStr' in fields) sent.dateStr = fields.dateStr!;
+    if ('dueTime' in fields) sent.dueTime = fields.dueTime ?? '';
+    if ('remind' in fields) sent.remind = fields.remind!;
+    const message = silent || failedRef.current ? null : SAVE_ERROR; // one error toast, not one per retry
+    const ok = await patchNote(note.id, fields, message);
+    if (gone.current) return ok;
+    if (ok) {
+      saved.current = sent;
+      setFailedBoth(false);
+    } else {
+      setFailedBoth(true);
+    }
+    return ok;
+  };
+
+  /** One save at a time: a new save waits for the running one. */
+  const enqueue = (closing: boolean, silent = false): Promise<boolean> => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+      setBusy(b => b - 1);
+    }
+    setBusy(b => b + 1);
+    const run = chain.current.then(() => saveNow(closing, silent));
+    chain.current = run.catch(() => false);
+    return run.finally(() => {
+      if (!gone.current) setBusy(b => b - 1);
+    });
+  };
+
+  // Keep the latest enqueue for timers and page listeners.
+  const enqueueRef = useRef(enqueue);
+  useLayoutEffect(() => {
+    enqueueRef.current = enqueue;
+  });
+
+  /** Any edit: restart the 500 ms wait. */
+  const edit = (fields: Partial<Values>) => {
+    setValues(fields);
+    setCloseArmed(false);
+    if (timer.current) clearTimeout(timer.current);
+    else setBusy(b => b + 1);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      setBusy(b => b - 1);
+      void enqueueRef.current(false);
+    }, EDITOR_SAVE_DELAY);
+  };
+
+  /** Turns the "Add item" text into an item. Returns whether it added one. */
+  const addItem = (): boolean => {
+    const t = newItemRef.current.trim();
+    if (!t || live.current.subtasks.length >= SUBTASKS_MAX) return false;
+    newItemRef.current = '';
+    setNewItem('');
+    edit({ subtasks: [...live.current.subtasks, { id: crypto.randomUUID(), title: t, isCompleted: false }] });
+    return true;
+  };
 
   const close = () => setEditorId(null);
 
-  const addItem = () => {
-    const t = newItem.trim();
-    if (!t || subtasks.length >= SUBTASKS_MAX) return;
-    setSubtasks([...subtasks, { id: crypto.randomUUID(), title: t, isCompleted: false }]);
-    setNewItem('');
+  /** Done, the close button, Esc or the scrim. */
+  const requestClose = async (via: 'done' | 'dismiss') => {
+    addItem();
+    if (via === 'dismiss' && closeArmed) {
+      close(); // a second close after a failed save leaves without saving
+      return;
+    }
+    setCloseTried(true);
+    const ok = await enqueue(true);
+    if (ok) close();
+    else if (via === 'dismiss') setCloseArmed(true);
   };
 
-  const save = async () => {
-    const cleanTitle = title.trim();
-    if (!cleanTitle) {
-      setError('Give the note a title.');
-      return;
-    }
-    if (!isDateStr(dateStr)) {
-      setError('Pick a valid day.');
-      return;
-    }
-    const cleanSubtasks = subtasks.map(s => ({ ...s, title: s.title.trim() })).filter(s => s.title);
-    const fields: Partial<Note> = {};
-    if (cleanTitle !== note.title) fields.title = cleanTitle;
-    if (description !== note.description) fields.description = description;
-    if (JSON.stringify(cleanSubtasks) !== JSON.stringify(note.subtasks)) fields.subtasks = cleanSubtasks;
-    if (dateStr !== note.dateStr) fields.dateStr = dateStr;
-    if ((dueTime || undefined) !== note.dueTime) fields.dueTime = dueTime || undefined;
-    if (remind !== note.remind) fields.remind = remind;
-    if ('dateStr' in fields || 'dueTime' in fields) fields.remindedAt = undefined; // an edited time can remind again
-    if (Object.keys(fields).length) await patchNote(note.id, fields);
+  const moveToTrash = async () => {
+    addItem();
+    await enqueue(true, true); // the note leaves anyway: no save error toast
     close();
+    void trashNote(note.id);
   };
+
+  const addItemRef = useRef(addItem);
+  useLayoutEffect(() => {
+    addItemRef.current = addItem;
+  });
+
+  // Leaving the tab: send waiting changes (best effort while the page tears down).
+  useEffect(() => {
+    const onHide = () => {
+      addItemRef.current();
+      void enqueueRef.current(true, true);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') void enqueueRef.current(false);
+    };
+    window.addEventListener('pagehide', onHide);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pagehide', onHide);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
+  // Closed from outside (the note was removed elsewhere): send nothing more.
+  useEffect(
+    () => () => {
+      gone.current = true;
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  const titleEmpty = !values.title.trim();
+  const dayInvalid = !isDateStr(values.dateStr);
+  const dayIsFull = !dayInvalid && isFull(notes, values.dateStr);
+  const showDayError = (dayInvalid && (dayTouched || closeTried)) || dayIsFull;
+  const status = busy > 0 ? 'Saving…' : failed || titleEmpty || dayInvalid || dayIsFull ? 'Not saved' : 'Saved';
+  const notSaved = status === 'Not saved';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-16">
-      <div aria-hidden="true" className="fixed inset-0 bg-scrim animate-fade-in" onClick={close} />
-      <form
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div aria-hidden="true" className="fixed inset-0 bg-scrim-strong animate-fade-in" onClick={() => void requestClose('dismiss')} />
+      <section
         ref={ref}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="editor-title"
-        onSubmit={e => {
-          e.preventDefault();
-          void save();
+        aria-label="Edit note"
+        onKeyDown={e => {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            void requestClose('dismiss');
+          }
         }}
-        className="relative w-full max-w-[520px] overflow-hidden rounded-[20px] border border-line bg-panel text-ink shadow-2xl animate-fade-in"
+        className={`paper paper-static paper-editor paper-${note.noteColor} flex max-h-[calc(100vh-32px)] w-full max-w-[580px] flex-col animate-fade-in`}
       >
-        <div aria-hidden="true" className={`paper-${note.noteColor} h-2`} />
-        <div className="flex flex-col gap-[18px] p-6">
-          <div className="flex items-center justify-between">
-            <h2 id="editor-title" className="font-display text-lg font-bold">
-              Edit note
-            </h2>
-            <button type="button" onClick={close} aria-label="Close editor" className="flex h-10 w-10 items-center justify-center rounded-[10px] text-ink-faint hover:bg-raise">
-              <X size={18} aria-hidden="true" />
-            </button>
-          </div>
+        <Pin noteId={note.id} large />
+        <button
+          type="button"
+          onClick={() => void requestClose('dismiss')}
+          aria-label="Close editor"
+          className="absolute top-1.5 right-2.5 z-10 flex h-11 w-11 items-center justify-center rounded-[10px] text-[var(--paper-ink)] hover:bg-[var(--paper-tool)]"
+        >
+          <X size={19} aria-hidden="true" />
+        </button>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="ed-title" className="text-[13px] font-semibold text-ink-soft">
+        <div className="note-scroll flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto px-6 pt-16 pb-7 sm:px-10">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="ed-title" className={label}>
               Title
             </label>
             <input
               id="ed-title"
               data-autofocus
-              value={title}
+              value={values.title}
               maxLength={TITLE_MAX}
-              onChange={e => {
-                setTitle(e.target.value);
-                setError('');
-              }}
-              aria-invalid={!!error}
-              aria-describedby={error ? 'ed-error' : undefined}
-              className={`${field} font-hand h-12 text-[26px] font-bold`}
+              placeholder="Write a title…"
+              onChange={e => edit({ title: e.target.value })}
+              aria-invalid={titleEmpty}
+              aria-describedby={titleEmpty ? 'ed-title-error' : undefined}
+              className={`${lineField} font-hand editor-title ${titleEmpty ? 'border-b-2 border-[var(--paper-danger)]' : ''}`}
             />
+            {titleEmpty && (
+              <p id="ed-title-error" className={`${errorText} mt-1`}>
+                <AlertCircle size={15} aria-hidden="true" />
+                Give the note a title.
+              </p>
+            )}
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="ed-desc" className="text-[13px] font-semibold text-ink-soft">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="ed-desc" className={label}>
               Details
             </label>
             <textarea
               id="ed-desc"
               rows={3}
-              value={description}
+              value={values.description}
               maxLength={DESCRIPTION_MAX}
-              onChange={e => setDescription(e.target.value)}
-              className={`${field} resize-y py-3 text-sm leading-relaxed`}
+              onChange={e => edit({ description: e.target.value })}
+              className={`${lineField} font-hand editor-text min-h-24 resize-none`}
             />
           </div>
 
-          <fieldset className="flex flex-col gap-1">
-            <legend className="mb-1.5 text-[13px] font-semibold text-ink-soft">Checklist</legend>
-            {subtasks.map((s, i) => (
-              <div key={s.id} className="flex min-h-10 items-center gap-2.5">
-                <input
-                  type="checkbox"
-                  checked={s.isCompleted}
+          <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
+            <legend className={`${label} mb-1.5`}>Checklist</legend>
+            {values.subtasks.map((s, i) => (
+              <div key={s.id} className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={s.isCompleted}
                   aria-label={`${s.title || 'Item'} done`}
-                  onChange={() => setSubtasks(subtasks.map(x => (x.id === s.id ? { ...x, isCompleted: !x.isCompleted } : x)))}
-                  className="h-[18px] w-[18px] accent-[var(--color-accent)]"
-                />
+                  onClick={() => edit({ subtasks: live.current.subtasks.map(x => (x.id === s.id ? { ...x, isCompleted: !x.isCompleted } : x)) })}
+                  className="flex h-8 w-8 flex-none items-center justify-center rounded-md text-[var(--paper-ink)]"
+                >
+                  <span className="note-check h-3.5 w-3.5">{s.isCompleted && <Check size={10} strokeWidth={4} aria-hidden="true" />}</span>
+                </button>
                 <input
                   value={s.title}
+                  maxLength={TITLE_MAX}
                   aria-label={`Checklist item ${i + 1}`}
-                  onChange={e => setSubtasks(subtasks.map(x => (x.id === s.id ? { ...x, title: e.target.value } : x)))}
-                  className={`flex-1 rounded-md border-0 bg-transparent px-1 py-1 text-sm outline-none focus:bg-raise ${s.isCompleted ? 'text-ink-faint line-through' : ''}`}
+                  onChange={e => edit({ subtasks: live.current.subtasks.map(x => (x.id === s.id ? { ...x, title: e.target.value } : x)) })}
+                  className={`font-hand editor-item min-w-0 flex-1 border-0 bg-transparent p-0 text-[var(--paper-ink)] outline-none focus-visible:underline ${s.isCompleted ? 'line-through opacity-60' : ''}`}
                 />
                 <button
                   type="button"
                   aria-label={`Remove ${s.title || 'item'}`}
-                  onClick={() => setSubtasks(subtasks.filter(x => x.id !== s.id))}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint hover:bg-raise"
+                  onClick={() => edit({ subtasks: live.current.subtasks.filter(x => x.id !== s.id) })}
+                  className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-[var(--paper-ink)] opacity-60 hover:bg-[var(--paper-tool)] hover:opacity-100"
                 >
-                  <X size={14} aria-hidden="true" />
+                  <X size={15} aria-hidden="true" />
                 </button>
               </div>
             ))}
-            {subtasks.length < SUBTASKS_MAX && (
-              <div className="flex min-h-10 items-center gap-2.5">
-                <Plus size={16} className="mx-px text-accent-soft" aria-hidden="true" />
+            {values.subtasks.length < SUBTASKS_MAX && (
+              <div className="flex items-center gap-2.5 text-[var(--paper-ink)]">
+                <span className="flex h-8 w-8 flex-none items-center justify-center opacity-70" aria-hidden="true">
+                  <Plus size={14} />
+                </span>
                 <label htmlFor="ed-new-item" className="sr-only">
                   Add a checklist item
                 </label>
                 <input
                   id="ed-new-item"
                   value={newItem}
+                  maxLength={TITLE_MAX}
                   placeholder="Add item"
-                  onChange={e => setNewItem(e.target.value)}
+                  onChange={e => {
+                    newItemRef.current = e.target.value;
+                    setNewItem(e.target.value);
+                  }}
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
                       addItem();
                     }
                   }}
-                  onBlur={addItem}
-                  className="flex-1 rounded-md border-0 bg-transparent px-1 py-1 text-sm outline-none placeholder:text-accent-soft focus:bg-raise"
+                  onBlur={() => addItem()}
+                  className="font-hand editor-item min-w-0 flex-1 border-0 bg-transparent p-0 text-[var(--paper-ink)] outline-none placeholder:text-[var(--paper-ink)] placeholder:opacity-60 focus-visible:underline"
                 />
               </div>
             )}
           </fieldset>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="mt-auto grid grid-cols-2 gap-3.5">
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="ed-day" className="text-[13px] font-semibold text-ink-soft">
+              <label htmlFor="ed-day" className={label}>
                 Day
               </label>
-              <input id="ed-day" type="date" value={dateStr} onChange={e => setDateStr(e.target.value)} className={`${field} h-11 text-sm`} />
+              <input
+                id="ed-day"
+                type="date"
+                value={values.dateStr}
+                onChange={e => edit({ dateStr: e.target.value })}
+                onBlur={() => setDayTouched(true)}
+                aria-invalid={showDayError}
+                aria-describedby={showDayError ? 'ed-day-error' : undefined}
+                className={`${box} ${showDayError ? 'border-2 border-[var(--paper-danger)]' : ''}`}
+              />
+              {showDayError && (
+                <p id="ed-day-error" className={errorText}>
+                  {dayIsFull ? 'That day already has 50 notes. Pick another day.' : 'Pick a valid day.'}
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="ed-time" className="text-[13px] font-semibold text-ink-soft">
+              <label htmlFor="ed-time" className={label}>
                 Due time
               </label>
-              <input id="ed-time" type="time" value={dueTime} onChange={e => {
-                  setDueTime(e.target.value);
-                  if (!e.target.value) setRemind(false);
-                }} className={`${field} h-11 text-sm`} />
+              <input
+                id="ed-time"
+                type="time"
+                value={values.dueTime}
+                onChange={e => edit(e.target.value ? { dueTime: e.target.value } : { dueTime: '', remind: false })}
+                className={box}
+              />
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3 rounded-xl bg-raise px-3.5 py-3">
+          <div className="flex items-center justify-between gap-3 text-[var(--paper-ink)]">
             <span className="flex flex-col">
-              <span id="ed-remind-label" className={`text-sm font-semibold ${dueTime ? '' : 'text-ink-faint'}`}>
-                {dueTime ? `Remind me at ${dueTime}` : 'Remind me'}
+              <span id="ed-remind-label" className={`text-sm font-semibold ${values.dueTime ? '' : 'opacity-75'}`}>
+                {values.dueTime ? `Remind me at ${formatTime(values.dueTime)}` : 'Remind me'}
               </span>
-              <span className="text-xs text-ink-faint">{dueTime ? "A Chrome notification when it's due" : 'Set a due time first'}</span>
+              <span className="text-xs">{values.dueTime ? "A Chrome notification when it's due" : 'Set a due time first'}</span>
             </span>
             <button
               type="button"
               role="switch"
-              aria-checked={remind}
+              aria-checked={values.remind}
               aria-labelledby="ed-remind-label"
-              disabled={!dueTime}
-              onClick={() => setRemind(!remind)}
-              className={`relative h-7 w-12 flex-none rounded-full transition-colors disabled:opacity-40 ${remind ? 'bg-accent' : 'bg-raise-strong'}`}
+              disabled={!values.dueTime}
+              onClick={() => edit({ remind: !live.current.remind })}
+              className={`relative h-[26px] w-11 flex-none rounded-full transition-colors disabled:cursor-not-allowed ${
+                values.remind ? 'bg-[var(--paper-btn)]' : 'bg-[var(--paper-switch-off)]'
+              }`}
             >
-              <span className={`absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white transition-all ${remind ? 'right-[3px]' : 'left-[3px]'}`} />
+              <span
+                className={`absolute top-[3px] h-5 w-5 rounded-full bg-[var(--paper-btn-ink)] transition-all ${values.remind ? 'right-[3px]' : 'left-[3px]'} ${
+                  values.dueTime ? '' : 'opacity-80'
+                }`}
+              />
             </button>
           </div>
 
-          {error && (
-            <p id="ed-error" role="alert" className="text-sm text-danger">
-              {error}
-            </p>
-          )}
-
-          <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-dashed border-[var(--paper-rule)] pt-3.5">
             <button
               type="button"
-              onClick={() => {
-                close();
-                void trashNote(note.id);
-              }}
-              className="h-11 px-2.5 text-sm text-danger hover:underline"
+              onClick={() => void moveToTrash()}
+              className="flex h-11 items-center gap-2 rounded-xl px-2.5 text-sm font-semibold text-[var(--paper-danger)] hover:bg-[var(--paper-tool)]"
             >
+              <Trash2 size={16} aria-hidden="true" />
               Move to Trash
             </button>
-            <button type="button" onClick={close} className="ml-auto h-11 rounded-[10px] border border-line-strong px-4 text-sm hover:bg-raise">
-              Cancel
-            </button>
-            <button type="submit" className="h-11 rounded-[10px] bg-accent px-5 text-sm font-semibold text-accent-ink hover:brightness-110">
-              Save
-            </button>
+            <span className="flex items-center gap-3">
+              <span role="status" className={`text-xs ${notSaved ? 'font-semibold text-[var(--paper-danger)]' : 'text-[var(--paper-ink)]'}`}>
+                {status}
+              </span>
+              <button
+                type="button"
+                onClick={() => void requestClose('done')}
+                className="h-11 rounded-xl bg-[var(--paper-btn)] px-[18px] text-sm font-semibold text-[var(--paper-btn-ink)] hover:opacity-90"
+              >
+                {failed ? 'Try again' : 'Done'}
+              </button>
+            </span>
           </div>
         </div>
-      </form>
+      </section>
     </div>
   );
 }

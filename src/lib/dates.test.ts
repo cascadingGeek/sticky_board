@@ -1,11 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
+  formatTime,
   isDateStr,
   isTimeStr,
   msUntilNextMidnight,
   offsetDateStr,
   resolveTz,
   todayInTz,
+  resetTimeFormat,
   zonedToEpoch,
 } from './dates';
 
@@ -95,5 +97,36 @@ describe('msUntilNextMidnight', () => {
   it('never returns less than one second', () => {
     const now = Date.parse('2026-11-08T22:59:59.900Z');
     expect(msUntilNextMidnight('Africa/Lagos', now)).toBe(1000);
+  });
+});
+
+describe('formatTime (spec 0003, AC-9)', () => {
+  const Native = Intl.DateTimeFormat;
+  afterEach(() => {
+    Intl.DateTimeFormat = Native;
+    resetTimeFormat();
+  });
+  const withLocale = (locale: string) => {
+    Intl.DateTimeFormat = function (_l?: string | string[], o?: Intl.DateTimeFormatOptions) {
+      return new Native(locale, o);
+    } as typeof Intl.DateTimeFormat;
+    resetTimeFormat();
+  };
+
+  it('writes 12 hour time in en-US', () => {
+    withLocale('en-US');
+    expect(formatTime('15:00')).toBe('3:00 PM');
+    expect(formatTime('00:05')).toBe('12:05 AM');
+  });
+
+  it('writes 24 hour time in en-GB', () => {
+    withLocale('en-GB');
+    expect(formatTime('15:00')).toBe('15:00');
+  });
+
+  it('is not shifted by the time zone', () => {
+    withLocale('en-GB');
+    expect(formatTime('23:30')).toBe('23:30');
+    expect(formatTime('12:45')).toBe('12:45');
   });
 });

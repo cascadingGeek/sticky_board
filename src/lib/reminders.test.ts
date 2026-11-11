@@ -28,7 +28,7 @@ describe('runReminderCheck', () => {
 
     await runReminderCheck();
 
-    expect(shown()).toEqual([expect.objectContaining({ id: `remind:${n.id}`, message: 'Call the bank', contextMessage: 'Due 12:00', requireInteraction: true })]);
+    expect(shown()).toEqual([expect.objectContaining({ id: `remind:${n.id}`, message: 'Call the bank', contextMessage: 'Due 12:00 PM', requireInteraction: true })]);
     expect((await readNote(n.id)).remindedAt).toBe(new Date(NOW).toISOString());
   });
 

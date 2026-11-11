@@ -29,27 +29,22 @@ export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCance
             onCancel();
           }
         }}
-        className="relative w-full max-w-sm rounded-2xl border border-line bg-panel p-6 text-ink shadow-2xl animate-fade-in"
+        className="relative w-full max-w-[400px] rounded-[20px] border border-line bg-panel p-6 text-ink shadow-pop animate-fade-in"
       >
-        <h2 id="confirm-title" className="font-display text-lg font-bold">
+        <h2 id="confirm-title" className="m-0 text-[21px] font-bold">
           {title}
         </h2>
-        <p id="confirm-message" className="mt-2 text-sm leading-relaxed text-ink-faint">
+        <p id="confirm-message" className="mt-2 mb-[22px] text-sm leading-normal text-ink-faint">
           {message}
         </p>
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            type="button"
-            data-autofocus
-            onClick={onCancel}
-            className="h-11 rounded-[10px] border border-line-strong px-4 text-sm hover:bg-raise"
-          >
+        <div className="flex justify-end gap-2">
+          <button type="button" data-autofocus onClick={onCancel} className="h-11 rounded-xl bg-raise-strong px-[18px] text-sm font-semibold hover:bg-hover">
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="h-11 rounded-[10px] bg-danger-fill px-4 text-sm font-semibold text-white hover:brightness-90"
+            className="h-11 rounded-xl bg-danger-fill px-[18px] text-sm font-semibold text-danger-fill-ink hover:opacity-90"
           >
             {confirmLabel}
           </button>

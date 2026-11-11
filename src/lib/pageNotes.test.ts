@@ -144,6 +144,7 @@ describe('sanitizePagePatch', () => {
 
   it('refuses an empty title or a long description', () => {
     expect(sanitizePagePatch({ title: '  ' })).toBeNull();
-    expect(sanitizePagePatch({ description: 'x'.repeat(5001) })).toBeNull();
+    expect(sanitizePagePatch({ description: 'x'.repeat(10001) })).toBeNull();
+    expect(sanitizePagePatch({ description: 'x'.repeat(10000) })).not.toBeNull();
   });
 });
