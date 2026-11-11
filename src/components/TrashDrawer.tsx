@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Globe, Trash2 } from 'lucide-react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
 import { shortDay } from '../lib/dates';
 import { siteOf } from '../lib/pageNotes';
@@ -19,9 +20,12 @@ export function TrashDrawer() {
     [allNotes],
   );
 
+  const countLabel = `${trashed.length} ${trashed.length === 1 ? 'note' : 'notes'}`;
+
   return (
     <Drawer
       title="Trash"
+      subtitle={trashed.length ? countLabel : undefined}
       onClose={() => openDrawer(null)}
       footer={
         trashed.length > 0 ? (
@@ -31,66 +35,74 @@ export function TrashDrawer() {
               setConfirm({
                 ids: trashed.map(n => n.id),
                 title: 'Empty trash?',
-                message: `This deletes ${trashed.length} ${trashed.length === 1 ? 'note' : 'notes'} for good. You can't undo it.`,
+                message: `This deletes ${countLabel} for good. You can't undo it.`,
                 label: 'Empty trash',
               })
             }
-            className="h-11 w-full rounded-[10px] border border-danger-line text-sm font-medium text-danger hover:bg-raise"
+            className="h-11 w-full rounded-[10px] border border-danger-line text-sm font-semibold text-danger hover:bg-hover"
           >
             Empty trash
           </button>
         ) : undefined
       }
     >
-      <p className="text-[13px] leading-relaxed text-ink-faint">Deleted notes stay here for 30 days, then they're gone for good.</p>
-
       {trashed.length === 0 ? (
-        <p className="mt-16 text-center font-hand text-2xl text-ink-faint">Trash is empty</p>
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-6 text-center">
+          <Trash2 size={64} strokeWidth={1.2} aria-hidden="true" className="text-line-strong" />
+          <p className="m-0 font-hand text-[30px] leading-none text-ink">Trash is empty</p>
+          <p className="m-0 text-sm leading-relaxed text-ink-faint">Deleted notes stay here for 30 days, then they're gone for good.</p>
+        </div>
       ) : (
-        <ul className="mt-4 flex flex-col gap-2">
-          {trashed.map(n => {
-            const left = Math.max(0, TRASH_DAYS - Math.floor((now - Date.parse(n.deletedAt!)) / DAY));
-            const soon = left <= 3;
-            return (
-              <li key={n.id} className="flex flex-col gap-2.5 rounded-[14px] border border-line bg-raise p-3.5">
-                <div className="flex items-start gap-3">
-                  <span aria-hidden="true" className={`paper-${n.noteColor} h-7 w-7 flex-none -rotate-3 rounded`} />
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-semibold">{n.title}</span>
-                    <span className="truncate text-xs text-ink-faint">{n.page ? `On ${siteOf(n.page.url)}` : `From ${shortDay(n.dateStr)}`}</span>
-                  </span>
+        <>
+          <p className="m-0 rounded-[12px] bg-raise-strong px-3.5 py-2.5 text-[13px] leading-relaxed text-ink-soft">
+            Deleted notes stay here for 30 days, then they're gone for good.
+          </p>
+          <ul className="m-0 mt-4 flex list-none flex-col gap-2.5 p-0">
+            {trashed.map(n => {
+              const left = Math.max(0, TRASH_DAYS - Math.floor((now - Date.parse(n.deletedAt!)) / DAY));
+              const soon = left <= 1;
+              return (
+                <li key={n.id} className="flex items-center gap-3 rounded-[12px] bg-raise px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap ${
-                      soon ? 'bg-warn-wash text-warn-ink' : 'bg-raise-strong text-ink-soft'
-                    }`}
-                  >
-                    {left === 1 ? '1 day left' : `${left} days left`}
+                    aria-hidden="true"
+                    className={`paper-${n.noteColor} paper-swatch h-[38px] w-[38px] flex-none -rotate-3 shadow-[-1px_2px_3px_rgba(0,0,0,0.2)]`}
+                  />
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="font-hand note-row-title break-words text-ink">{n.title}</span>
+                    <span className={`flex flex-wrap items-center gap-x-1 text-xs ${soon ? 'font-semibold text-danger' : 'text-ink-faint'}`}>
+                      {n.page && <Globe size={12} aria-hidden="true" className="flex-none" />}
+                      <span className="break-all">{n.page ? `On ${siteOf(n.page.url)}` : `From ${shortDay(n.dateStr)}`}</span>
+                      <span className="whitespace-nowrap">· {left <= 1 ? 'gone tomorrow' : `${left} days left`}</span>
+                    </span>
                   </span>
-                </div>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => void restoreNote(n.id)} className="h-9 rounded-[9px] border border-line-strong px-3.5 text-[13px] font-medium hover:bg-raise">
+                  <button
+                    type="button"
+                    onClick={() => void restoreNote(n.id)}
+                    className="h-9 flex-none rounded-[9px] bg-raise-strong px-3 text-[13px] font-semibold text-ink hover:bg-line-strong"
+                  >
                     Restore
                   </button>
                   <button
                     type="button"
                     aria-label={`Delete ${n.title} forever`}
+                    title="Delete forever"
                     onClick={() =>
                       setConfirm({
                         ids: [n.id],
                         title: 'Delete forever?',
-                        message: `“${n.title}” will be gone for good. You can't undo it.`,
+                        message: `“${n.title}” will be deleted for good. You can't undo it.`,
                         label: 'Delete forever',
                       })
                     }
-                    className="h-9 px-2.5 text-[13px] text-danger hover:underline"
+                    className="flex h-11 w-11 flex-none items-center justify-center rounded-[10px] text-danger hover:bg-hover"
                   >
-                    Delete forever
+                    <Trash2 size={17} aria-hidden="true" />
                   </button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
 
       {confirm && (

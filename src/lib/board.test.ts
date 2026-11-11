@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clampX, firstFreeSpot, hostOf, isHttpUrl, latestNoteColor, linkify, nextZ, pickColor, tiltFor } from './board';
+import { clampX, firstFreeSpot, hostOf, isHttpUrl, latestNoteColor, linkify, nextZ, pickColor, pinFor, tiltFor } from './board';
 import { makeNote } from '../test/notes';
 import { NOTE_COLORS } from '../types';
 
@@ -114,12 +114,26 @@ describe('tiltFor', () => {
     expect(tiltFor('abc-123')).toBe(tiltFor('abc-123'));
   });
 
-  it('stays between -2 and 2 degrees', () => {
-    for (const id of ['a', 'zzzzzzzzzz', crypto.randomUUID(), crypto.randomUUID(), '']) {
+  // covers: spec 0003 AC-6
+  it('stays between -2.5 and 2.5 degrees', () => {
+    for (const id of ['a', 'zzzzzzzzzz', '', ...Array.from({ length: 1000 }, () => crypto.randomUUID())]) {
       const t = tiltFor(id);
-      expect(t).toBeGreaterThanOrEqual(-2);
-      expect(t).toBeLessThanOrEqual(2);
+      expect(t).toBeGreaterThanOrEqual(-2.5);
+      expect(t).toBeLessThanOrEqual(2.5);
     }
+  });
+});
+
+describe('pinFor', () => {
+  // covers: spec 0003 AC-5 (stable per id, every colour shows up)
+  it('is the same for the same id every time', () => {
+    const id = crypto.randomUUID();
+    expect(pinFor(id)).toBe(pinFor(id));
+  });
+
+  it('gives all four pin colours across many notes', () => {
+    const seen = new Set(Array.from({ length: 1000 }, () => pinFor(crypto.randomUUID())));
+    expect([...seen].sort()).toEqual(['blue', 'green', 'red', 'yellow']);
   });
 });
 

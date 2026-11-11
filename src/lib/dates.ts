@@ -113,3 +113,34 @@ export const msUntilNextMidnight = (timeZone: string, now = Date.now()): number 
   const next = zonedToEpoch(offsetDateStr(today, 1), '00:00', timeZone);
   return Math.max(1000, next - now);
 };
+
+// One cached formatter in the browser's locale. UTC on both sides, so the
+// computer's time zone and daylight saving can never shift the shown time.
+let timeFormat: Intl.DateTimeFormat | null = null;
+
+/** HH:MM as the browser's locale writes it ("3:00 PM" in en-US, "15:00" in en-GB). */
+export const formatTime = (hhmm: string): string => {
+  const [h = 0, m = 0] = hhmm.split(':').map(Number);
+  timeFormat ??= new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
+  return timeFormat.format(new Date(Date.UTC(2000, 0, 1, h, m)));
+};
+
+/** Resets the cached time formatter (tests change the locale). */
+export const resetTimeFormat = () => {
+  timeFormat = null;
+};
+
+/** "Today", "Yesterday", "Tomorrow", otherwise the weekday name ("Friday"). */
+export const dayRelation = (dateStr: string, today: string): string => {
+  if (dateStr === today) return 'Today';
+  if (dateStr === offsetDateStr(today, -1)) return 'Yesterday';
+  if (dateStr === offsetDateStr(today, 1)) return 'Tomorrow';
+  return weekdayName(dateStr);
+};
+
+/** "Today · 3 notes": the day relation, then the count of that day's board notes (spec 0003, AC-11). */
+export const daySubtitle = (dateStr: string, today: string, count: number): string => {
+  const relation = dayRelation(dateStr, today);
+  if (!count) return relation;
+  return `${relation} · ${count} ${count === 1 ? 'note' : 'notes'}`;
+};

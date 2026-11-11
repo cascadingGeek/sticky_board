@@ -8,7 +8,7 @@ import { captureLink, captureSelection } from '../lib/capture';
 import { resolveTz, todayInTz } from '../lib/dates';
 import { pageMessageListener, pinOnTab, syncRegistration } from '../lib/pageAccess';
 import { REMINDER_ALARM, runReminderCheck } from '../lib/reminders';
-import { notes, purgeTrash, runMigrations, settings } from '../lib/storage';
+import { DayFullError, notes, purgeTrash, runMigrations, settings } from '../lib/storage';
 
 const PURGE_ALARM = 'purge-trash';
 const BOARD_PATH = 'newtab.html';
@@ -40,12 +40,12 @@ const openBoard = async (dateStr: string) => {
   await chrome.tabs.create({ url: `${boardUrl}#date=${dateStr}` });
 };
 
-const notifyFailure = () =>
+const notifyFailure = (message = "Couldn't save to Sticky Board. Please try again.") =>
   chrome.notifications.create({
     type: 'basic',
     iconUrl: chrome.runtime.getURL('icon/128.png'),
     title: 'Sticky Board',
-    message: "Couldn't save to Sticky Board. Please try again.",
+    message,
   });
 
 export default defineBackground(() => {
@@ -87,8 +87,8 @@ export default defineBackground(() => {
       } else if (info.menuItemId === 'save-link' && info.linkUrl) {
         await captureLink(info.linkUrl, info.selectionText, info.pageUrl, tab?.title);
       }
-    } catch {
-      notifyFailure();
+    } catch (e) {
+      notifyFailure(e instanceof DayFullError ? "Today already has 50 notes, so this wasn't saved. Finish or remove one, then try again." : undefined);
     }
   });
 

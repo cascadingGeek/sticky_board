@@ -1,21 +1,30 @@
 import { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
-import { THEMES, type ThemeSetting } from '../types';
-import { THEME_LABELS, THEME_SWATCH } from '../lib/themes';
+import { formatTime } from '../lib/dates';
+import type { PinColor } from '../lib/board';
+import type { NoteColor, ThemeSetting } from '../types';
+import { THEME_LABELS, THEME_ORDER, THEME_SWATCH } from '../lib/themes';
+import { Pin } from './Pin';
 
 const HINTS: Record<ThemeSetting, string> = {
-  dark: 'Default, easy on the eyes',
-  light: 'Bright and clean',
+  light: 'Default, bright and clean',
+  dark: 'Easy on the eyes',
   midnight: 'Pure black, calm accent',
   cork: 'A warm real corkboard',
   system: 'Dark or Light like your computer',
 };
 
-/** First run: pick a theme with a live preview, then start. Shown once. */
+const SAMPLES: { title: string; text: string; color: NoteColor; pin: PinColor; left: number; top: number; tilt: number }[] = [
+  { title: 'Plan the week', text: '3 small tasks', color: 'yellow', pin: 'red', left: 30, top: 40, tilt: -2.5 },
+  { title: 'Read later', text: 'Saved from a website', color: 'blue', pin: 'yellow', left: 300, top: 90, tilt: 2 },
+  { title: 'Call Ada', text: formatTime('18:00'), color: 'pink', pin: 'blue', left: 150, top: 290, tilt: 1.5 },
+];
+
+/** First run: pick a theme with a live preview, then start. Shown once. Light is the default (spec 0003, AC-1). */
 export function WelcomeScreen() {
   const { updateSettings, setThemeOverride, patchMeta } = useStickyBoard();
-  const [choice, setChoice] = useState<ThemeSetting>('dark');
+  const [choice, setChoice] = useState<ThemeSetting>('light');
 
   const pick = (t: ThemeSetting) => {
     setChoice(t);
@@ -28,32 +37,32 @@ export function WelcomeScreen() {
   };
 
   return (
-    <main className="board-surface flex min-h-screen items-center justify-center px-6 py-16 text-ink">
-      <div className="flex w-full max-w-[1100px] flex-wrap items-center gap-14">
-        <div className="flex min-w-0 flex-[1_1_380px] flex-col gap-7 rounded-3xl bg-panel p-8 shadow-2xl">
+    <main className="board-surface flex min-h-screen items-center justify-center px-4 py-12 text-ink sm:px-10">
+      <div className="flex w-full max-w-[1220px] flex-wrap items-center justify-center gap-14">
+        <section className="flex w-full max-w-[560px] min-w-0 flex-col gap-7 rounded-3xl bg-panel p-6 shadow-pop sm:p-10">
           <div className="flex items-center gap-2.5">
-            <span aria-hidden="true" className="paper-yellow flex h-[34px] w-[34px] -rotate-6 items-center justify-center rounded-[9px]">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--pin)' }} />
+            <span aria-hidden="true" className="paper-note paper-yellow relative h-[30px] w-[30px] -rotate-6">
+              <span className="paper" />
             </span>
-            <span className="font-display text-lg font-bold">Sticky Board</span>
+            <span className="text-lg font-bold">Sticky Board</span>
           </div>
-          <div className="flex flex-col gap-3">
-            <h1 className="font-display text-[44px] leading-[1.05] font-bold tracking-tight">Your day, pinned to every new tab.</h1>
-            <p className="max-w-[460px] text-[17px] leading-relaxed text-ink-faint">
+          <div>
+            <h1 className="m-0 text-[36px] leading-[1.05] font-bold tracking-[-0.02em] sm:text-[44px]">Your day, pinned to every new tab.</h1>
+            <p className="mt-3.5 mb-0 text-[17px] leading-relaxed text-ink-faint">
               Pick a look to start. Your notes stay in this browser, and you can change the theme any time in Settings.
             </p>
           </div>
-          <fieldset className="flex flex-col gap-2.5">
+          <fieldset className="m-0 border-0 p-0">
             <legend className="mb-2.5 text-[13px] font-semibold text-ink-soft">Theme</legend>
-            <div className="grid grid-cols-2 gap-2.5">
-              {THEMES.map(t => (
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {THEME_ORDER.map(t => (
                 <button
                   key={t}
                   type="button"
                   aria-pressed={choice === t}
                   onClick={() => pick(t)}
                   className={`flex min-h-16 items-center gap-3 rounded-[14px] border-2 px-3.5 py-3 text-left ${
-                    choice === t ? 'border-accent-soft bg-accent-wash' : 'border-line hover:bg-raise'
+                    choice === t ? 'border-accent-soft bg-accent-wash' : 'border-line hover:bg-hover'
                   }`}
                 >
                   <span aria-hidden="true" className={`h-9 w-9 flex-none rounded-[9px] ${THEME_SWATCH[t]}`} />
@@ -69,7 +78,7 @@ export function WelcomeScreen() {
             <button
               type="button"
               onClick={() => finish(true)}
-              className="flex h-12 items-center gap-2.5 rounded-xl bg-accent px-6 text-[15px] font-semibold text-accent-ink hover:brightness-110"
+              className="flex h-12 items-center gap-2.5 rounded-xl bg-accent px-6 text-[15px] font-semibold text-accent-ink hover:opacity-90"
             >
               Start my board
               <ArrowRight size={16} aria-hidden="true" />
@@ -78,21 +87,22 @@ export function WelcomeScreen() {
               Skip for now
             </button>
           </div>
-        </div>
+        </section>
 
-        <div aria-hidden="true" className="relative h-[460px] min-w-0 flex-[1_1_480px]">
-          <div className="paper-yellow absolute top-[40px] left-[30px] h-[170px] w-[170px] -rotate-2 rounded p-4 pt-7" style={{ boxShadow: 'var(--note-shadow)' }}>
-            <div className="font-hand text-[28px] leading-none font-bold">Plan the week</div>
-            <div className="mt-2.5 text-xs">3 small tasks</div>
-          </div>
-          <div className="paper-blue absolute top-[80px] left-[240px] h-[170px] w-[170px] rotate-[1.5deg] rounded p-4 pt-7" style={{ boxShadow: 'var(--note-shadow)' }}>
-            <div className="font-hand text-[28px] leading-none font-bold">Read later</div>
-            <div className="mt-2.5 text-xs">Saved from a website</div>
-          </div>
-          <div className="paper-pink absolute top-[250px] left-[110px] h-[170px] w-[170px] rotate-[2.5deg] rounded p-4 pt-7" style={{ boxShadow: 'var(--note-shadow)' }}>
-            <div className="font-hand text-[28px] leading-none font-bold">Call Ada</div>
-            <div className="mt-2.5 text-xs">18:00</div>
-          </div>
+        <div aria-hidden="true" className="relative hidden h-[520px] w-[600px] flex-none lg:block">
+          {SAMPLES.map(n => (
+            <div
+              key={n.title}
+              className={`paper-note paper-${n.color} absolute`}
+              style={{ left: n.left, top: n.top, width: 220, height: 220, transform: `rotate(${n.tilt}deg)` }}
+            >
+              <div className="paper px-[18px] pt-11 pb-4">
+                <Pin color={n.pin} />
+                <p className="note-title">{n.title}</p>
+                <p className="note-text mt-2 mb-0">{n.text}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </main>

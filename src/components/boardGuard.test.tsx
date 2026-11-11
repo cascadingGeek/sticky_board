@@ -46,8 +46,8 @@ describe('board views exclude page notes', () => {
     expect(ctx.allNotes).toHaveLength(3);
     expect(screen.queryByText(/Page note/)).not.toBeInTheDocument();
     // The calendar shows one open note on the 8th and nothing on the 7th.
-    expect(screen.getByRole('button', { name: /November 8: 0 done, 1 open/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /November 7: 0 done, 0 open/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /November 8, 1 note/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /November 7, no notes/i })).toBeInTheDocument();
     // Carry over: yesterday holds only a page note, so nothing is offered.
     await waitFor(() => expect(screen.queryByRole('dialog', { name: /unfinished notes/ })).not.toBeInTheDocument());
   });

@@ -193,7 +193,7 @@ export const handlePageRequest = async (msg: PageRequest, sender: chrome.runtime
     case 'page-notes/open-access': {
       if (msg.host !== hostnameOf(page.url)) return { ok: false };
       const url = chrome.runtime.getURL(`/site-access.html?host=${encodeURIComponent(msg.host)}&tab=${page.tabId}`);
-      await chrome.windows.create({ url, type: 'popup', width: 420, height: 320, focused: true });
+      await chrome.windows.create({ url, type: 'popup', width: 420, height: 460, focused: true });
       return { ok: true };
     }
     default:

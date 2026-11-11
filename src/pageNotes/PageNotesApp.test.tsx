@@ -2,11 +2,12 @@
 // in-memory fake; writes go to a fake background through `send`.
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { PageRequest } from '../lib/pageMessages';
 import { makeNote, seedNotes } from '../test/notes';
 import type { Note } from '../types';
 import { createBridge, type Bridge } from './bridge';
+import { resetHandFont } from './font';
 import { LIMIT_MESSAGE, PageNotesApp, type Send } from './PageNotesApp';
 
 const HERE = `${location.origin}/a?x=1`;
@@ -33,6 +34,7 @@ beforeEach(() => {
   bridge = createBridge();
   allowed = true;
   send = vi.fn(reply);
+  resetHandFont();
 });
 
 describe('which notes show', () => {
@@ -114,6 +116,51 @@ describe('pinning a new note', () => {
     act(() => input.blur());
     await waitFor(() => expect(screen.queryByRole('region', { name: 'New sticky note' })).not.toBeInTheDocument());
     expect(requests('page-notes/create')).toHaveLength(0);
+  });
+
+  // Regression: pressing on the draft's paper used to blur the title and discard the draft.
+  it('keeps the draft and its focus when you press on its paper', async () => {
+    const user = userEvent.setup();
+    mount();
+    act(() => bridge.emit({ type: 'new-draft', via: 'shortcut' }));
+    const input = await screen.findByLabelText('New note title');
+
+    await user.click(screen.getByText('Enter to save · Esc to discard'));
+    await user.keyboard('Still here');
+
+    expect(screen.getByRole('region', { name: 'New sticky note' })).toBeInTheDocument();
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue('Still here');
+  });
+
+  // Regression: sites like ChatGPT grab focus when you type; the content script hands it back at once.
+  it('keeps an empty draft when focus leaves and comes straight back', async () => {
+    mount();
+    act(() => bridge.emit({ type: 'new-draft', via: 'shortcut' }));
+    const input = await screen.findByLabelText('New note title');
+    const siteBox = document.body.appendChild(document.createElement('textarea'));
+
+    act(() => {
+      siteBox.focus();
+      input.focus();
+    });
+    await act(() => new Promise(r => setTimeout(r, 20)));
+
+    expect(screen.getByRole('region', { name: 'New sticky note' })).toBeInTheDocument();
+    expect(requests('page-notes/create')).toHaveLength(0);
+    siteBox.remove();
+  });
+
+  it('still saves a titled draft when focus moves away for good', async () => {
+    const user = userEvent.setup();
+    mount();
+    act(() => bridge.emit({ type: 'new-draft', via: 'shortcut' }));
+    const input = await screen.findByLabelText('New note title');
+    await user.type(input, 'Read later');
+
+    act(() => input.blur());
+
+    await waitFor(() => expect(requests('page-notes/create')[0]).toMatchObject({ title: 'Read later' }));
   });
 
   // covers: AC-18
@@ -236,5 +283,72 @@ describe('the Allow line', () => {
     await screen.findByRole('region', { name: 'Sticky note: Quiet' });
     await waitFor(() => expect(send).toHaveBeenCalled());
     expect(screen.queryByText('Show this note when you come back?')).not.toBeInTheDocument();
+  });
+});
+
+describe('handwriting (spec 0003)', () => {
+  const g = globalThis as { FontFace?: unknown };
+  afterEach(() => {
+    delete g.FontFace;
+  });
+  const rootOf = (title: string) => screen.getByRole('region', { name: `Sticky note: ${title}` }).closest('.sb-root')!;
+
+  // covers: AC-23
+  it('uses the plain font when Handwriting on notes is off, and follows the setting live', async () => {
+    await chrome.storage.sync.set({ settings: { handwritingFont: false } });
+    await seedNotes(makeNote({ title: 'Plain', page: page() }));
+    mount();
+    await screen.findByRole('region', { name: 'Sticky note: Plain' });
+    await waitFor(() => expect(rootOf('Plain')).toHaveClass('no-handwriting'));
+
+    await act(() => chrome.storage.sync.set({ settings: { handwritingFont: true } }));
+    await waitFor(() => expect(rootOf('Plain')).not.toHaveClass('no-handwriting'));
+  });
+
+  // covers: AC-24
+  it('registers the bundled font as SB Hand and shows the text once it is ready', async () => {
+    const add = vi.fn();
+    const made: unknown[][] = [];
+    g.FontFace = class {
+      constructor(...args: unknown[]) {
+        made.push(args);
+      }
+      load() {
+        return Promise.resolve(this);
+      }
+    };
+    Object.defineProperty(document, 'fonts', { value: { add }, configurable: true });
+    await seedNotes(makeNote({ title: 'Hand', page: page() }));
+    mount();
+    await screen.findByRole('region', { name: 'Sticky note: Hand' });
+    await waitFor(() => expect(rootOf('Hand')).not.toHaveClass('sb-hide-text'));
+    expect(made[0]?.[0]).toBe('SB Hand');
+    expect(made[0]?.[1]).toBeInstanceOf(Uint8Array);
+    expect((made[0]?.[1] as Uint8Array).length).toBeGreaterThan(1000);
+    expect(add).toHaveBeenCalledTimes(1);
+  });
+
+  // covers: AC-24
+  it('hides the text while the font loads, then shows it after 300 ms even if the font never arrives', async () => {
+    g.FontFace = class {
+      load() {
+        return new Promise(() => undefined);
+      }
+    };
+    await seedNotes(makeNote({ title: 'Slow', page: page() }));
+    mount();
+    await screen.findByRole('region', { name: 'Sticky note: Slow' });
+    expect(rootOf('Slow')).toHaveClass('sb-hide-text');
+    await waitFor(() => expect(rootOf('Slow')).not.toHaveClass('sb-hide-text'), { timeout: 1000 });
+  });
+});
+
+describe('details limit', () => {
+  // Long notes from calls were cut off at 5,000 characters.
+  it('lets a page note hold 10,000 characters of details', async () => {
+    await seedNotes(makeNote({ title: 'Call notes', page: page() }));
+    mount();
+    const note = await screen.findByRole('region', { name: 'Sticky note: Call notes' });
+    expect(note.querySelector('textarea')).toHaveAttribute('maxLength', '10000');
   });
 });

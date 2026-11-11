@@ -90,7 +90,22 @@ export default defineContentScript({
       anchor: document.documentElement,
       append: 'last',
       css,
-      isolateEvents: ['keydown', 'keyup', 'keypress', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick'],
+      isolateEvents: [
+        'keydown',
+        'keyup',
+        'keypress',
+        'beforeinput',
+        'input',
+        'paste',
+        'copy',
+        'cut',
+        'pointerdown',
+        'pointerup',
+        'mousedown',
+        'mouseup',
+        'click',
+        'dblclick',
+      ],
       onMount: container => {
         const root = createRoot(container);
         root.render(<PageNotesApp bridge={bridge} send={send} />);
@@ -99,6 +114,32 @@ export default defineContentScript({
       onRemove: root => root?.unmount(),
     });
     if (ctx.isInvalid) return;
+
+    // Chat sites (ChatGPT, Claude) catch keys and pastes from capture
+    // listeners we can't stop. When the target isn't editable they cancel
+    // the event and type or paste into their own box instead. From outside,
+    // every event from a note looks like it comes from our host, so while
+    // focus is in a note the host is marked editable and those sites leave
+    // the event alone. The shadow content doesn't inherit it, so nothing in
+    // the note becomes editable that wasn't already.
+    let lastFocused: HTMLElement | null = null;
+    ui.shadow.addEventListener('focusin', e => {
+      lastFocused = e.target as HTMLElement;
+      ui.shadowHost.setAttribute('contenteditable', 'true');
+    });
+    ui.shadow.addEventListener('focusout', () => {
+      setTimeout(() => {
+        if (!ui.shadow.activeElement) ui.shadowHost.removeAttribute('contenteditable');
+      });
+    });
+    // A site that still moves focus away from a capture listener: our host's
+    // capture runs after theirs and before the note, so give focus back and
+    // the key lands in the note.
+    const keepFocus = () => {
+      if (lastFocused?.isConnected && !ui.shadow.activeElement) lastFocused.focus({ preventScroll: true });
+    };
+    for (const type of ['keydown', 'keypress']) ui.shadowHost.addEventListener(type, keepFocus, { capture: true });
+
     ui.mount();
   },
 });

@@ -10,6 +10,8 @@
 |---|---|---|
 | Chrome extension first release | in-progress | [0001](../specs/0001-chrome-extension-mvp/index.md) |
 | Pin notes on websites | in-progress | [0002](../specs/0002-pin-notes-on-websites/index.md) |
+| Realistic notes redesign | in-progress | [0003](../specs/0003-realistic-notes-redesign/index.md) |
+| Move a page note to today's board | in-progress | [0004](../specs/0004-move-page-note-board.md) |
 
 ## Chrome extension first release · in-progress
 
@@ -44,6 +46,39 @@ Spec: [0002](../specs/0002-pin-notes-on-websites/index.md) · code in `src/pageN
   - [x] Full note and board side: drag, resize, edit, collapse, Trash, live updates, address changes, Pages drawer, search, Settings sites list (AC-7 to AC-12, AC-14, AC-16)
 - [ ] Verify it: /check verify pin notes on websites
 - [ ] Test it: /test pin notes on websites
+
+## Realistic notes redesign · in-progress
+
+Give every surface the new realistic paper look from the "Realistic Sticky Board" canvas: notes with a pushpin, glue strip, lifted shadows and grain, Caveat Brush handwriting, a light Wall default, and matching Dark, Midnight and Cork themes. The board, editor, drawers, search, onboarding, messages and notes on websites all change; behaviour and stored data do not.
+
+Done when: every board in the canvas matches in all five themes, existing users who never picked a theme stay on Dark, and AC-1 to AC-26 in spec 0003 pass.
+
+Spec: [0003](../specs/0003-realistic-notes-redesign/index.md) · code in `src/index.css`, new `src/styles/paper.css`, `src/components/`, `src/pageNotes/`
+
+- [x] Design it (spec): /architect realistic notes redesign
+- [x] Build it: /develop realistic notes redesign
+  - [x] Paper note thread: shared paper CSS, pins, tilt, Caveat Brush, Light default and the one time theme check (AC-1 to AC-8, AC-10)
+  - [x] Board and dialogs: top bar, chips and time format, draft, states, paper editor that saves as you type, carry over, toasts, onboarding (AC-9, AC-11 to AC-14, AC-17 to AC-19, AC-27)
+  - [x] Drawers, search and themes: 440 px drawers, search, Dark, Midnight, Cork, System, contrast (AC-15, AC-16, AC-20 to AC-22)
+  - [x] Notes on websites and cleanup: paper and bundled font on websites, Allow window, package cleanup, design.md, tests (AC-23 to AC-26)
+- [ ] Verify it: /check verify realistic notes redesign
+- [ ] Test it: /test realistic notes redesign
+
+## Move a page note to today's board · in-progress
+
+Rescue a note pinned on a website whose page is gone (a finished Google Meet call): one button on the note or in the Pages drawer moves it to today's board as an ordinary board note with a link back to the site, sends the page note to Trash, and offers Undo for 6 seconds.
+
+Done when: a note pinned in a call can be moved from the Pages drawer after the tab is closed and read and edited on today's board, the 50 notes a day limit is respected, Undo restores the page note, and AC-1 to AC-12 in spec 0004 pass.
+
+Spec: [0004](../specs/0004-move-page-note-board.md) · code in `src/lib/storage/`, `src/lib/pageAccess.ts`, `src/lib/pageMessages.ts`, `src/components/PagesDrawer.tsx`, `src/pageNotes/`
+
+- [x] Design it (spec): /architect copy page note to board
+- [ ] Build it: /develop move a page note to today's board
+  - [ ] Storage move and Undo under the shared lock, in one write, with today from settings (AC-3, AC-6, AC-7, AC-8, AC-10, AC-11)
+  - [ ] Pages drawer button with toast and Undo (AC-2, AC-4, AC-5, AC-12)
+  - [ ] Button on the note on a website, page messages and the on page message with Undo (AC-1, AC-5, AC-6, AC-7, AC-9, AC-11, AC-12)
+- [ ] Verify it: /check verify move a page note to today's board
+- [ ] Test it: /test move a page note to today's board
 
 ## Deferred
 

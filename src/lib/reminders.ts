@@ -3,7 +3,7 @@
  * every start, when the `reminders` alarm fires, and when notes or settings
  * change. One alarm is kept, set for the next due reminder.
  */
-import { resolveTz, zonedToEpoch } from './dates';
+import { formatTime, resolveTz, zonedToEpoch } from './dates';
 import { boardNotes } from './pageNotes';
 import { notes, settings } from './storage';
 import type { Note } from '../types';
@@ -48,7 +48,7 @@ export const runReminderCheck = (): Promise<void> =>
         iconUrl: chrome.runtime.getURL('icon/128.png'),
         title: 'Sticky Board',
         message: n.title,
-        contextMessage: `Due ${n.dueTime}`,
+        contextMessage: `Due ${formatTime(n.dueTime!)}`,
         requireInteraction: true,
       });
     }

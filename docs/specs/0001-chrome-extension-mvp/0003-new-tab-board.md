@@ -57,7 +57,7 @@ Keep the current React app as the new tab page, rewired onto the storage layer (
 
 **Note editor** (modal)
 - Fields: Title (max 200), Details (max 5,000), Checklist (add, rename, tick, remove; empty items are dropped on save; max 50), Day (a date picker), Due time with a Remind toggle that is disabled until a time is set (clearing the time also turns Remind off).
-- Save writes only changed fields through `notes.patch`; no changes means no write. Changing the day keeps the note's position. Cancel or Esc discards changes without asking. "Move to Trash" trashes and closes.
+- Save writes only changed fields through `notes.patch`; no changes means no write. Changing the day keeps the note's position. Cancel or Esc discards changes without asking. "Move to Trash" trashes and closes. (Save model superseded by [spec 0003](../0003-realistic-notes-redesign/index.md) AC-27: the editor now saves as you type and has no Cancel. The no colour rule still holds.)
 - If the note is deleted or trashed in another tab while the editor is open, the editor closes with a toast "This note was removed".
 
 **Keyboard rules**

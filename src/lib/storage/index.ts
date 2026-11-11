@@ -7,7 +7,7 @@
  */
 import { firstFreeSpot, isActive, nextZ, pickColor, type Viewport } from '../board';
 import { boardNotes, nextPageZ, notesOnPage } from '../pageNotes';
-import { DEFAULT_SETTINGS, PAGE_NOTE_LIMIT, SCHEMA_VERSION, type Meta, type Note, type NoteColor, type PageRef, type Settings } from '../../types';
+import { DAY_FULL_MESSAGE, DAY_NOTE_LIMIT, DEFAULT_SETTINGS, PAGE_NOTE_LIMIT, SCHEMA_VERSION, type Meta, type Note, type NoteColor, type PageRef, type Settings } from '../../types';
 import { parseNote, parseSettings } from './validate';
 
 const NOTE_PREFIX = 'note:';
@@ -123,15 +123,29 @@ export interface NewNoteInput {
   preferredColor?: NoteColor;
 }
 
+/** Thrown when a day's board already holds DAY_NOTE_LIMIT notes. */
+export class DayFullError extends Error {
+  constructor() {
+    super(DAY_FULL_MESSAGE);
+    this.name = 'DayFullError';
+  }
+}
+
+/** Active board notes on `dateStr`, leaving out `exceptId`. */
+export const countOnDay = (all: Note[], dateStr: string, exceptId?: string) =>
+  boardNotes(all).filter(n => n.dateStr === dateStr && isActive(n) && n.id !== exceptId).length;
+
 /**
  * Creates a note inside the `note-create` lock shared by every tab and the
- * background worker, so the color rule and z never race.
+ * background worker, so the color rule, z and the day limit never race.
+ * Throws DayFullError when the day already has DAY_NOTE_LIMIT notes.
  */
 export const createNote = (input: NewNoteInput): Promise<Note> =>
   navigator.locks.request('note-create', async () => {
     const all = await notes.getAll();
     const board = boardNotes(all);
     const day = board.filter(n => n.dateStr === input.dateStr && isActive(n));
+    if (day.length >= DAY_NOTE_LIMIT) throw new DayFullError();
     const pos = input.position ?? firstFreeSpot(day, input.viewport ?? { top: 0, width: 1280 });
     const ts = nowIso();
     const note: Note = {
@@ -191,15 +205,18 @@ export const createPageNote = (input: NewPageNoteInput): Promise<Note | 'limit'>
 
 /**
  * Takes a note out of Trash. A page note goes back only when its page has
- * room (AC-10); the check runs in the same `note-create` lock as creating.
+ * room (AC-10), a board note only when its day has room ('day-full'); the
+ * check runs in the same `note-create` lock as creating.
  */
-export const restoreNote = (id: string): Promise<Note | 'limit' | null> =>
+export const restoreNote = (id: string): Promise<Note | 'limit' | 'day-full' | null> =>
   navigator.locks.request('note-create', async () => {
     const note = await notes.get(id);
     if (!note) return null;
-    if (note.page && note.deletedAt) {
+    if (note.deletedAt) {
       const all = await notes.getAll();
-      if (notesOnPage(all, note.page.url).length >= PAGE_NOTE_LIMIT) return 'limit';
+      if (note.page) {
+        if (notesOnPage(all, note.page.url).length >= PAGE_NOTE_LIMIT) return 'limit';
+      } else if (countOnDay(all, note.dateStr) >= DAY_NOTE_LIMIT) return 'day-full';
     }
     return notes.patch(id, { deletedAt: undefined });
   });
@@ -270,9 +287,33 @@ export const purgeTrash = async (now = Date.now()): Promise<number> => {
   return old.length;
 };
 
-/** Migrations run in order by the background worker. None yet beyond version 1. */
+/**
+ * Spec 0003, AC-2: Light became the default theme. Once only, an existing user
+ * (onboarding finished) who never saved a theme gets `dark` saved so their
+ * board doesn't change. Reads the raw sync object (parseSettings would fill in
+ * the default and hide the missing key) and writes only the theme key on top
+ * of it. If sync storage fails, the marker stays unset so the next update tries again.
+ */
+export const settleThemeDefault = async (): Promise<void> => {
+  const m = await meta.get();
+  if (m.themeDefaultCheckedAt) return;
+  try {
+    const res = await chrome.storage.sync.get(SETTINGS_KEY);
+    const raw = res[SETTINGS_KEY];
+    const stored = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+    if (m.onboardedAt && !('theme' in stored)) {
+      await chrome.storage.sync.set({ [SETTINGS_KEY]: { ...stored, theme: 'dark' } });
+    }
+  } catch {
+    return;
+  }
+  await meta.patch({ themeDefaultCheckedAt: nowIso() });
+};
+
+/** Migrations run in order by the background worker on install and update. */
 export const runMigrations = async (): Promise<void> => {
   const m = await meta.get();
   if (m.schemaVersion < SCHEMA_VERSION) await meta.patch({ schemaVersion: SCHEMA_VERSION });
   else if (!(await chrome.storage.local.get(META_KEY))[META_KEY]) await meta.patch({ schemaVersion: SCHEMA_VERSION });
+  await settleThemeDefault();
 };

@@ -27,7 +27,7 @@ describe('parseNote', () => {
     ['a javascript: source URL', { source: { url: 'javascript:alert(1)', title: 'x' } }],
     ['an empty title', { title: '   ' }],
     ['a title over 200 characters', { title: 'x'.repeat(201) }],
-    ['a description over 5,000 characters', { description: 'x'.repeat(5001) }],
+    ['a description over 10,000 characters', { description: 'x'.repeat(10001) }],
     ['an impossible date', { dateStr: '2026-02-30' }],
     ['an unknown color', { noteColor: 'red' }],
     ['more than 50 checklist items', { subtasks: Array.from({ length: 51 }, (_, i) => ({ id: `${i}`, title: 't', isCompleted: false })) }],
@@ -62,6 +62,6 @@ describe('parseSettings', () => {
   });
 
   it('rejects an unknown theme', () => {
-    expect(parseSettings({ theme: 'neon' }).theme).toBe('dark');
+    expect(parseSettings({ theme: 'neon' }).theme).toBe('light');
   });
 });

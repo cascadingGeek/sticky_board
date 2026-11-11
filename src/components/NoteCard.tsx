@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { Bell, Check, Clock, CornerDownRight, Link2, Pencil, Trash2 } from 'lucide-react';
+import { Bell, Check, CornerDownRight, Link2, Pencil, Trash2 } from 'lucide-react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
 import { clampX, hostOf, linkify, nextZ, tiltFor } from '../lib/board';
-import { shortDay } from '../lib/dates';
+import { formatTime, shortDay } from '../lib/dates';
 import { NOTE_SIZE, type Note } from '../types';
+import { Pin } from './Pin';
 
 interface NoteCardProps {
   note: Note;
@@ -143,8 +144,10 @@ export function NoteCard({ note, boardWidth, originDay }: NoteCardProps) {
       subtasks: note.subtasks.map(s => (s.id === id ? { ...s, isCompleted: !s.isCompleted } : s)),
     });
 
-  const lifted = drag?.active || keyPos;
+  const lifted = !!(drag?.active || keyPos);
   const [isNew] = useState(() => Date.now() - Date.parse(note.createdAt) < 1500);
+  const tool = 'flex h-11 w-11 items-center justify-center rounded-full';
+  const toolFace = 'flex h-7 w-7 items-center justify-center rounded-full bg-[var(--paper-tool)] group-hover/tool:bg-[var(--paper-tool-hover)]';
 
   return (
     <article
@@ -160,131 +163,114 @@ export function NoteCard({ note, boardWidth, originDay }: NoteCardProps) {
       }}
       onKeyDown={onKeyDown}
       onKeyUp={onKeyUp}
-      className={`note-card paper-${note.noteColor} absolute touch-none select-none rounded-[4px] ${drag?.active ? 'cursor-grabbing' : 'cursor-grab'} ${isNew ? 'animate-pin-drop' : ''}`}
+      className={`note-card paper-note paper-${note.noteColor} absolute touch-none select-none ${lifted ? 'paper-lifted' : ''} ${drag?.active ? 'cursor-grabbing' : 'cursor-grab'} ${isNew ? 'animate-pin-drop' : ''} ${highlighted ? 'focus-ring' : ''}`}
       style={{
         left: x,
         top: y,
         width: NOTE_SIZE,
         height: NOTE_SIZE,
         zIndex: lifted ? 10000 : note.z,
-        transform: `rotate(${lifted ? 0 : tiltFor(note.id)}deg)`,
-        boxShadow: lifted ? 'var(--note-shadow-lift)' : 'var(--note-shadow)',
+        transform: lifted ? 'translateY(-4px)' : `rotate(${tiltFor(note.id)}deg)`,
         opacity: note.isCompleted ? 0.6 : 1,
-        outline: highlighted ? '4px solid var(--color-accent-soft)' : undefined,
-        outlineOffset: highlighted ? 6 : undefined,
-        transition: drag?.active ? 'none' : 'box-shadow 160ms ease, transform 160ms ease',
+        willChange: drag?.active ? 'transform' : undefined,
+        transition: drag?.active ? 'none' : 'transform 160ms ease',
       }}
     >
-      <span
-        aria-hidden="true"
-        className="absolute top-2 left-1/2 -ml-[7px] h-3.5 w-3.5 rounded-full shadow-[0_3px_4px_rgba(0,0,0,0.35)]"
-        style={{ background: 'var(--pin)' }}
-      />
+      <div className="paper">
+        <Pin noteId={note.id} />
 
-      <div className="note-tools absolute inset-x-1.5 top-1.5 z-10 flex justify-between">
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={note.isCompleted}
-          aria-label={`Mark ${note.title} ${note.isCompleted ? 'not done' : 'done'}`}
-          onClick={toggleComplete}
-          className="flex h-7 w-7 items-center justify-center rounded-lg bg-black/10 hover:bg-black/20"
-        >
-          <span className="flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border-2 border-current">
-            {note.isCompleted && <Check size={10} strokeWidth={4} aria-hidden="true" />}
+        <div className="note-tools absolute -top-1.5 -right-1.5 -left-1.5 z-10 flex justify-between text-[var(--paper-ink)]">
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={note.isCompleted}
+            aria-label={`Mark ${note.title} ${note.isCompleted ? 'not done' : 'done'}`}
+            onClick={toggleComplete}
+            className={`group/tool ${tool}`}
+          >
+            <span className={toolFace}>
+              <span className="note-check">{note.isCompleted && <Check size={9} strokeWidth={4} aria-hidden="true" />}</span>
+            </span>
+          </button>
+          <span className="flex">
+            <button type="button" aria-label={`Edit ${note.title}`} onClick={() => setEditorId(note.id)} className={`group/tool ${tool}`}>
+              <span className={toolFace}>
+                <Pencil size={14} aria-hidden="true" />
+              </span>
+            </button>
+            <button type="button" aria-label={`Move ${note.title} to Trash`} onClick={trashAndRefocus} className={`group/tool ${tool}`}>
+              <span className={toolFace}>
+                <Trash2 size={14} aria-hidden="true" />
+              </span>
+            </button>
           </span>
-        </button>
-        <span className="flex gap-1">
-          <button
-            type="button"
-            aria-label={`Edit ${note.title}`}
-            onClick={() => setEditorId(note.id)}
-            className="flex h-7 w-7 items-center justify-center rounded-lg bg-black/10 hover:bg-black/20"
-          >
-            <Pencil size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label={`Move ${note.title} to Trash`}
-            onClick={trashAndRefocus}
-            className="flex h-7 w-7 items-center justify-center rounded-lg bg-black/10 hover:bg-black/20"
-          >
-            <Trash2 size={14} aria-hidden="true" />
-          </button>
-        </span>
-      </div>
+        </div>
 
-      <div ref={scrollRef} className="note-scroll absolute inset-x-0 top-9 bottom-0 overflow-y-auto px-4 pb-3.5">
-        <h2 className={`font-hand text-[28px] leading-none font-bold break-words ${note.isCompleted ? 'line-through' : ''}`}>
-          {note.title}
-        </h2>
+        <div ref={scrollRef} className="note-scroll absolute inset-x-0 top-10 bottom-0 overflow-y-auto px-[18px] pb-4">
+          <h2 className={`note-title ${note.isCompleted ? 'line-through' : ''}`}>{note.title}</h2>
 
-        {note.description && (
-          <p className="mt-1.5 text-[13px] leading-snug break-words whitespace-pre-wrap">
-            {linkify(note.description).map((p, i) =>
-              p.href ? (
-                <a key={i} href={p.href} target="_blank" rel="noopener noreferrer" className="font-semibold underline">
-                  {p.text}
+          {note.description && (
+            <p className="note-text mt-2 mb-0 whitespace-pre-wrap">
+              {linkify(note.description).map((p, i) =>
+                p.href ? (
+                  <a key={i} href={p.href} target="_blank" rel="noopener noreferrer" className="underline">
+                    {p.text}
+                  </a>
+                ) : (
+                  <span key={i}>{p.text}</span>
+                ),
+              )}
+            </p>
+          )}
+
+          {note.subtasks.length > 0 && (
+            <ul className="note-text mt-2 flex flex-col gap-1">
+              {note.subtasks.map(s => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={s.isCompleted}
+                    onClick={() => toggleSubtask(s.id)}
+                    className="flex w-full items-center gap-2 text-left"
+                  >
+                    <span className="note-check">{s.isCompleted && <Check size={9} strokeWidth={4} aria-hidden="true" />}</span>
+                    <span className={s.isCompleted ? 'line-through opacity-60' : ''}>{s.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {(note.dueTime || note.carriedFromId || note.carriedToDate || note.source) && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+              {note.dueTime && (
+                <span className="note-chip">
+                  <Bell size={11} fill={note.remind ? 'currentColor' : 'none'} aria-hidden="true" />
+                  <span>{formatTime(note.dueTime)}</span>
+                  {note.remind && <span className="sr-only">, reminder on</span>}
+                </span>
+              )}
+              {note.carriedFromId && (
+                <span className="note-chip">
+                  <CornerDownRight size={11} aria-hidden="true" />
+                  <span>{originDay ? `Carried from ${shortDay(originDay).split(',')[0]}` : 'Carried over'}</span>
+                </span>
+              )}
+              {note.carriedToDate && (
+                <span className="note-chip">
+                  <span>Carried to {shortDay(note.carriedToDate)}</span>
+                </span>
+              )}
+              {note.source && (
+                <a href={note.source.url} target="_blank" rel="noopener noreferrer" className="note-chip" title={note.source.title || note.source.url}>
+                  <Link2 size={11} className="flex-none" aria-hidden="true" />
+                  <span>{hostOf(note.source.url)}</span>
                 </a>
-              ) : (
-                <span key={i}>{p.text}</span>
-              ),
-            )}
-          </p>
-        )}
-
-        {note.subtasks.length > 0 && (
-          <ul className="mt-2 flex flex-col gap-1">
-            {note.subtasks.map(s => (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked={s.isCompleted}
-                  onClick={() => toggleSubtask(s.id)}
-                  className="flex w-full items-start gap-2 text-left text-[13px] leading-snug"
-                >
-                  <span className="mt-[3px] flex h-3 w-3 flex-none items-center justify-center rounded-[3px] border-[1.5px] border-current">
-                    {s.isCompleted && <Check size={9} strokeWidth={4} aria-hidden="true" />}
-                  </span>
-                  <span className={s.isCompleted ? 'line-through opacity-65' : ''}>{s.title}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {(note.dueTime || note.carriedFromId || note.carriedToDate || note.source) && (
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs font-semibold">
-            {note.dueTime && (
-              <span className="flex items-center gap-1">
-                <Clock size={12} aria-hidden="true" />
-                {note.dueTime}
-                {note.remind && <Bell size={12} fill="currentColor" aria-label="Reminder on" />}
-              </span>
-            )}
-            {note.carriedFromId && (
-              <span className="flex items-center gap-1 rounded-full bg-black/10 px-2 py-0.5">
-                <CornerDownRight size={11} aria-hidden="true" />
-                {originDay ? `Carried from ${shortDay(originDay).split(',')[0]}` : 'Carried over'}
-              </span>
-            )}
-            {note.carriedToDate && (
-              <span className="rounded-full bg-black/10 px-2 py-0.5">Carried to {shortDay(note.carriedToDate)}</span>
-            )}
-            {note.source && (
-              <a
-                href={note.source.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex w-full min-w-0 items-center gap-1 underline"
-              >
-                <Link2 size={12} className="flex-none" aria-hidden="true" />
-                <span className="truncate">{note.source.title || hostOf(note.source.url)}</span>
-              </a>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </article>
   );

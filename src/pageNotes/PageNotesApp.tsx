@@ -2,13 +2,17 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { pickColor } from '../lib/board';
 import type { HelloReply, PageRequest, WriteReply } from '../lib/pageMessages';
 import { drawnSpot, normalizePageUrl, notesOnPage, stackedSpot, type PagePatch } from '../lib/pageNotes';
-import { notes as noteStore } from '../lib/storage';
+import { notes as noteStore, settings as settingsStore } from '../lib/storage';
 import { PAGE_NOTE_LIMIT, type Note } from '../types';
 import type { Bridge } from './bridge';
+import { loadHandFont } from './font';
 import { PageDraft, type PageDraftState } from './PageDraft';
 import { PageNote } from './PageNote';
 
 export const LIMIT_MESSAGE = 'This page already has 50 notes.';
+
+/** How long note text may stay hidden while the handwriting font loads (spec 0003, AC-24). */
+export const FONT_WAIT_MS = 300;
 
 export type Send = <R>(msg: PageRequest) => Promise<R>;
 
@@ -43,6 +47,35 @@ export function PageNotesApp({ bridge, send }: { bridge: Bridge; send: Send }) {
       .then(r => setAllowed(!!r?.allowed))
       .catch(() => undefined);
   }, [load, send]);
+
+  // "Handwriting on notes" from Settings, kept current (spec 0003, AC-23).
+  const [plain, setPlain] = useState(false);
+  useEffect(() => {
+    let gone = false;
+    void settingsStore.get().then(s => {
+      if (!gone) setPlain(!s.handwritingFont);
+    });
+    const stop = settingsStore.subscribe(s => setPlain(!s.handwritingFont));
+    return () => {
+      gone = true;
+      stop();
+    };
+  }, []);
+
+  // Text stays hidden until the font is ready or refused, or FONT_WAIT_MS pass.
+  const [textReady, setTextReady] = useState(false);
+  useEffect(() => {
+    let gone = false;
+    const show = () => {
+      if (!gone) setTextReady(true);
+    };
+    const timer = setTimeout(show, FONT_WAIT_MS);
+    void loadHandFont().then(show);
+    return () => {
+      gone = true;
+      clearTimeout(timer);
+    };
+  }, []);
 
   // Live updates from the board and other tabs (AC-8).
   useEffect(
@@ -185,7 +218,7 @@ export function PageNotesApp({ bridge, send }: { bridge: Bridge; send: Send }) {
   };
 
   return (
-    <div className="sb-root">
+    <div className={`sb-root${plain ? ' no-handwriting' : ''}${textReady ? '' : ' sb-hide-text'}`}>
       {onPage.map(n => {
         const spot = drawnSpot(n, size.w, size.h);
         return (
