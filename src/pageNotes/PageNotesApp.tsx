@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { pickColor } from '../lib/board';
-import type { HelloReply, PageRequest, WriteReply } from '../lib/pageMessages';
+import type { HelloReply, MoveReply, PageRequest, UndoMoveReply, WriteReply } from '../lib/pageMessages';
 import { drawnSpot, normalizePageUrl, notesOnPage, stackedSpot, type PagePatch } from '../lib/pageNotes';
 import { notes as noteStore, settings as settingsStore } from '../lib/storage';
-import { PAGE_NOTE_LIMIT, type Note } from '../types';
+import { DAY_FULL_MESSAGE, PAGE_NOTE_LIMIT, type Note } from '../types';
 import type { Bridge } from './bridge';
 import { loadHandFont } from './font';
+import { MovedMessage, type Notice } from './MovedMessage';
 import { PageDraft, type PageDraftState } from './PageDraft';
 import { PageNote } from './PageNote';
 
 export const LIMIT_MESSAGE = 'This page already has 50 notes.';
+export const MOVED_MESSAGE = "Moved to today's board";
+export const GONE_MESSAGE = 'This note was already moved or deleted.';
+export const MOVE_FAILED_MESSAGE = "Couldn't move the note. Try again.";
 
 /** How long note text may stay hidden while the handwriting font loads (spec 0003, AC-24). */
 export const FONT_WAIT_MS = 300;
@@ -24,12 +28,20 @@ const docSize = () => ({
 /** Every page note for the current address, plus a draft when you pin a new one. */
 export function PageNotesApp({ bridge, send }: { bridge: Bridge; send: Send }) {
   const [url, setUrl] = useState(() => normalizePageUrl(location.href));
+  // The address right now, for replies that arrive after the page moved on (spec 0004).
+  const urlRef = useRef(url);
   const [all, setAll] = useState<Map<string, Note>>(new Map());
   const [loaded, setLoaded] = useState(false);
   const [allowed, setAllowed] = useState(true);
   const [draft, setDraft] = useState<PageDraftState | null>(null);
   const [size, setSize] = useState(docSize);
   const draftKey = useRef(0);
+  // Moving to today's board (spec 0004): notes waiting on a reply, their errors, and the messages left behind.
+  const [moving, setMoving] = useState<Map<string, string | null>>(new Map());
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const noticeKey = useRef(0);
+  // The last save sent for each note, so a move waits for text typed just before it.
+  const writes = useRef(new Map<string, Promise<unknown>>());
 
   const load = useCallback(
     () =>
@@ -154,8 +166,12 @@ export function PageNotesApp({ bridge, send }: { bridge: Bridge; send: Send }) {
           // AC-14: a new address swaps the notes; only a #part change keeps them.
           // Use the address from the event: it fires before location.href changes.
           const next = normalizePageUrl(e.href);
+          urlRef.current = next;
           setUrl(cur => {
-            if (cur !== next) setDraft(null);
+            if (cur !== next) {
+              setDraft(null);
+              setNotices([]);
+            }
             return next;
           });
         } else if (e.type === 'reload') {
@@ -201,9 +217,68 @@ export function PageNotesApp({ bridge, send }: { bridge: Bridge; send: Send }) {
 
   const patch = (n: Note, fields: PagePatch) => {
     setAll(prev => new Map(prev).set(n.id, { ...n, ...fields }));
-    send<WriteReply>({ type: 'page-notes/patch', id: n.id, fields })
+    const sent = send<WriteReply>({ type: 'page-notes/patch', id: n.id, fields })
       .then(r => applyReply(n.id, r))
       .catch(() => undefined);
+    writes.current.set(n.id, sent);
+  };
+
+  const setMove = (id: string, value: string | null | undefined) =>
+    setMoving(prev => {
+      const next = new Map(prev);
+      if (value === undefined) next.delete(id);
+      else next.set(id, value);
+      return next;
+    });
+  const addNotice = (n: Omit<Notice, 'key'>) => {
+    noticeKey.current += 1;
+    const key = noticeKey.current;
+    setNotices(list => [...list, { ...n, key }]);
+  };
+
+  /** Not optimistic: the note stays, buttons disabled, until the background answers (spec 0004). */
+  const moveToBoard = async (n: Note, x: number, y: number) => {
+    if (moving.get(n.id) === null) return;
+    setMove(n.id, null);
+    const from = urlRef.current;
+    await writes.current.get(n.id);
+    let r: MoveReply;
+    try {
+      r = await send<MoveReply>({ type: 'page-notes/move-to-board', id: n.id });
+    } catch {
+      r = { error: 'failed' };
+    }
+    if ('boardId' in r) {
+      setMove(n.id, undefined);
+      setAll(prev => new Map(prev).set(n.id, { ...n, deletedAt: new Date().toISOString() }));
+      // A message belongs to the address it was made on; the page may have moved on since.
+      if (urlRef.current === from) addNotice({ x, y, text: MOVED_MESSAGE, undo: { pageId: r.pageId, boardId: r.boardId } });
+    } else if (r.error === 'gone') {
+      setMove(n.id, undefined);
+      setAll(prev => {
+        const next = new Map(prev);
+        next.delete(n.id);
+        return next;
+      });
+      if (urlRef.current === from) addNotice({ x, y, text: GONE_MESSAGE });
+    } else {
+      setMove(n.id, r.error === 'day-full' ? DAY_FULL_MESSAGE : MOVE_FAILED_MESSAGE);
+    }
+  };
+
+  const undoMove = async ({ pageId, boardId }: { pageId: string; boardId: string }): Promise<string | null> => {
+    try {
+      const r = await send<UndoMoveReply>({ type: 'page-notes/undo-move', pageId, boardId });
+      if ('ok' in r) {
+        void load();
+        return null;
+      }
+      if (r.error === 'limit') return LIMIT_MESSAGE;
+      if (r.error === 'gone') return "Couldn't undo, the page note is no longer in Trash.";
+      return "Couldn't undo. Please try again.";
+    } catch {
+      return "Couldn't undo. Please try again.";
+    }
   };
 
   const trash = (n: Note) => {
@@ -231,9 +306,15 @@ export function PageNotesApp({ bridge, send }: { bridge: Bridge; send: Send }) {
             onPatch={fields => patch(n, fields)}
             onTrash={() => trash(n)}
             onAllow={allow}
+            moving={moving.get(n.id) === null}
+            moveError={moving.get(n.id) ?? undefined}
+            onMove={() => void moveToBoard(n, spot.x, spot.y)}
           />
         );
       })}
+      {notices.map(n => (
+        <MovedMessage key={n.key} notice={n} onUndo={undoMove} onDone={() => setNotices(list => list.filter(x => x.key !== n.key))} />
+      ))}
       {draft && (
         <PageDraft
           draft={draft}

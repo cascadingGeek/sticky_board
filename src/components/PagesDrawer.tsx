@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ExternalLink, Trash2 } from 'lucide-react';
+import { CalendarArrowDown, ExternalLink, Trash2 } from 'lucide-react';
 import { useStickyBoard } from '../lib/StickyBoardContext';
 import { isActive } from '../lib/board';
 import { hostnameOf } from '../lib/pageAccess';
@@ -14,7 +14,7 @@ const kbd = 'rounded-md bg-kbd px-1.5 py-0.5 font-mono text-xs font-semibold tex
 
 /** Page notes grouped by site, newest first by when they were created (spec 0002, AC-11). */
 export function PagesDrawer() {
-  const { allNotes, trashNote, openDrawer } = useStickyBoard();
+  const { allNotes, trashNote, moveToBoard, openDrawer } = useStickyBoard();
   const { access } = useSiteAccess();
 
   const { groups, total } = useMemo(() => {
@@ -108,6 +108,15 @@ export function PagesDrawer() {
                             <span className="truncate text-xs text-ink-faint">{n.page!.title || n.page!.url}</span>
                           </span>
                           <ExternalLink size={15} aria-hidden="true" className="flex-none text-ink-faint opacity-0 group-hover:opacity-100" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Move ${n.title} to today's board`}
+                          title="Move to today's board"
+                          onClick={() => void moveToBoard(n.id)}
+                          className="flex h-11 w-11 flex-none items-center justify-center rounded-[10px] text-ink-faint hover:bg-hover hover:text-ink"
+                        >
+                          <CalendarArrowDown size={16} aria-hidden="true" />
                         </button>
                         <button
                           type="button"

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { GripVertical, Minus, Plus, Trash2, X } from 'lucide-react';
+import { CalendarArrowDown, GripVertical, Minus, Plus, Trash2, X } from 'lucide-react';
 import { Pin } from '../components/Pin';
 import { tiltFor } from '../lib/board';
 import { clampHeight, clampWidth, collapsedLabel, noteHeight, noteWidth, type PagePatch } from '../lib/pageNotes';
@@ -19,6 +19,11 @@ interface PageNoteProps {
   onPatch: (fields: PagePatch) => void;
   onTrash: () => void;
   onAllow: () => void;
+  /** Move to today's board (spec 0004). */
+  onMove: () => void;
+  /** True while the move waits for the background: the buttons are disabled. */
+  moving: boolean;
+  moveError?: string;
 }
 
 interface Gesture {
@@ -32,7 +37,7 @@ interface Gesture {
 }
 
 /** One sticky note on a web page. Every change goes to the background through `onPatch`. */
-export function PageNote({ note, x, y, allowed, onPatch, onTrash, onAllow }: PageNoteProps) {
+export function PageNote({ note, x, y, allowed, onPatch, onTrash, onAllow, onMove, moving, moveError }: PageNoteProps) {
   const [title, setTitle] = useState(note.title);
   const [description, setDescription] = useState(note.description);
   const [subtasks, setSubtasks] = useState<Subtask[]>(note.subtasks);
@@ -207,10 +212,23 @@ export function PageNote({ note, x, y, allowed, onPatch, onTrash, onAllow }: Pag
           <span className="sb-grip" aria-hidden="true">
             <GripVertical size={14} />
           </span>
-          <button type="button" className="sb-icon" aria-label={`Collapse ${note.title}`} title="Collapse" onClick={() => onPatch({ collapsed: true })}>
+          <button
+            type="button"
+            className="sb-icon"
+            aria-label={`Move ${note.title} to today's board`}
+            title="Move to today's board"
+            disabled={moving}
+            onClick={() => {
+              flush(); // text typed in the last half second goes first
+              onMove();
+            }}
+          >
+            <CalendarArrowDown size={14} aria-hidden="true" />
+          </button>
+          <button type="button" className="sb-icon" aria-label={`Collapse ${note.title}`} title="Collapse" disabled={moving} onClick={() => onPatch({ collapsed: true })}>
             <Minus size={14} aria-hidden="true" />
           </button>
-          <button type="button" className="sb-icon" aria-label={`Move ${note.title} to Trash`} title="Move to Trash" onClick={onTrash}>
+          <button type="button" className="sb-icon" aria-label={`Move ${note.title} to Trash`} title="Move to Trash" disabled={moving} onClick={onTrash}>
             <Trash2 size={14} aria-hidden="true" />
           </button>
         </div>
@@ -309,6 +327,12 @@ export function PageNote({ note, x, y, allowed, onPatch, onTrash, onAllow }: Pag
             )}
           </ul>
         </div>
+
+        {moveError && (
+          <p className="sb-strip sb-error" role="alert">
+            <span>{moveError}</span>
+          </p>
+        )}
 
         {!allowed && (
           <div className="sb-strip" role="note">

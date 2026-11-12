@@ -11,7 +11,7 @@
 | Chrome extension first release | in-progress | [0001](../specs/0001-chrome-extension-mvp/index.md) |
 | Pin notes on websites | in-progress | [0002](../specs/0002-pin-notes-on-websites/index.md) |
 | Realistic notes redesign | in-progress | [0003](../specs/0003-realistic-notes-redesign/index.md) |
-| Move a page note to today's board | in-progress | [0004](../specs/0004-move-page-note-board.md) |
+| Move a page note to today's board | done | [0004](../specs/0004-move-page-note-board/index.md) |
 
 ## Chrome extension first release · in-progress
 
@@ -64,21 +64,21 @@ Spec: [0003](../specs/0003-realistic-notes-redesign/index.md) · code in `src/in
 - [ ] Verify it: /check verify realistic notes redesign
 - [ ] Test it: /test realistic notes redesign
 
-## Move a page note to today's board · in-progress
+## Move a page note to today's board · done
 
 Rescue a note pinned on a website whose page is gone (a finished Google Meet call): one button on the note or in the Pages drawer moves it to today's board as an ordinary board note with a link back to the site, sends the page note to Trash, and offers Undo for 6 seconds.
 
 Done when: a note pinned in a call can be moved from the Pages drawer after the tab is closed and read and edited on today's board, the 50 notes a day limit is respected, Undo restores the page note, and AC-1 to AC-12 in spec 0004 pass.
 
-Spec: [0004](../specs/0004-move-page-note-board.md) · code in `src/lib/storage/`, `src/lib/pageAccess.ts`, `src/lib/pageMessages.ts`, `src/components/PagesDrawer.tsx`, `src/pageNotes/`
+Spec: [0004](../specs/0004-move-page-note-board/index.md) · code in `src/lib/storage/`, `src/lib/pageAccess.ts`, `src/lib/pageMessages.ts`, `src/components/PagesDrawer.tsx`, `src/lib/StickyBoardContext.tsx`, `src/pageNotes/` (new `MovedMessage.tsx`)
 
 - [x] Design it (spec): /architect copy page note to board
-- [ ] Build it: /develop move a page note to today's board
-  - [ ] Storage move and Undo under the shared lock, in one write, with today from settings (AC-3, AC-6, AC-7, AC-8, AC-10, AC-11)
-  - [ ] Pages drawer button with toast and Undo (AC-2, AC-4, AC-5, AC-12)
-  - [ ] Button on the note on a website, page messages and the on page message with Undo (AC-1, AC-5, AC-6, AC-7, AC-9, AC-11, AC-12)
-- [ ] Verify it: /check verify move a page note to today's board
-- [ ] Test it: /test move a page note to today's board
+- [x] Build it: /develop move a page note to today's board
+  - [x] Storage move and Undo under the shared lock, in one write, with today from settings (AC-3, AC-6, AC-7, AC-8, AC-10, AC-11)
+  - [x] Pages drawer button with toast and Undo (AC-2, AC-4, AC-5, AC-12)
+  - [x] Button on the note on a website, page messages and the on page message with Undo (AC-1, AC-5, AC-6, AC-7, AC-9, AC-11, AC-12)
+- [x] Verify it: /check verify move a page note to today's board
+- [x] Test it: /test move a page note to today's board
 
 ## Deferred
 

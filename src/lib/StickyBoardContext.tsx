@@ -9,6 +9,8 @@ import { playSound, type SoundType } from './sounds';
 import { boardNotes } from './pageNotes';
 import {
   createNote as storageCreate,
+  movePageNoteToBoard,
+  undoMoveToBoard,
   DayFullError,
   meta as metaStore,
   notes as noteStore,
@@ -50,6 +52,8 @@ interface StickyBoardContextType {
   patchNote: (id: string, fields: Partial<Note>, errorMessage?: string | null) => Promise<boolean>;
   trashNote: (id: string) => Promise<void>;
   restoreNote: (id: string) => Promise<void>;
+  /** Moves a page note to today's board, with Undo in the toast (spec 0004). */
+  moveToBoard: (id: string) => Promise<void>;
   deleteForever: (ids: string[]) => Promise<void>;
   sound: (type: SoundType) => void;
 
@@ -334,6 +338,51 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
       toast("Couldn't restore that note. Please try again.", 'error');
     }
   }, [toast]);
+  /** Puts notes a storage call returned straight into the board's state, as Restore does. */
+  const keep = useCallback((...list: (Note | null)[]) => {
+    const real = list.filter((n): n is Note => !!n);
+    for (const n of real) lastSaved.current.set(n.id, n);
+    setNoteMap(prev => {
+      const next = new Map(prev);
+      for (const n of real) next.set(n.id, n);
+      return next;
+    });
+  }, []);
+
+  const undoMove = useCallback(async (pageId: string, boardId: string) => {
+    try {
+      const r = await undoMoveToBoard(pageId, boardId);
+      if (r === 'limit') toast('This page already has 50 notes.', 'error');
+      else if (r === 'gone') toast("Couldn't undo, the page note is no longer in Trash.", 'error');
+      else if (r === 'invalid') toast("Couldn't undo. Please try again.", 'error');
+      else keep(r.page, r.board);
+    } catch {
+      toast("Couldn't undo. Please try again.", 'error');
+    }
+  }, [keep, toast]);
+
+  // Notes with a move still running: a second press (a double click) is ignored, not answered "gone".
+  const moving = useRef(new Set<string>());
+  const moveToBoard = useCallback(async (id: string) => {
+    if (moving.current.has(id)) return;
+    moving.current.add(id);
+    try {
+      const r = await movePageNoteToBoard(id);
+      if (r === 'day-full') toast(DAY_FULL_MESSAGE, 'error');
+      else if (r === 'gone') toast('This note was already moved or deleted.', 'error');
+      else {
+        keep(r.board, r.page);
+        sound('pop');
+        const title = r.board.title.length > 60 ? `${r.board.title.slice(0, 60)}…` : r.board.title;
+        toast(`“${title}” moved to today's board`, 'info', { label: 'Undo', run: () => void undoMove(r.page.id, r.board.id) });
+      }
+    } catch {
+      toast("Couldn't move the note. Try again.", 'error');
+    } finally {
+      moving.current.delete(id);
+    }
+  }, [keep, sound, toast, undoMove]);
+
   const restoreRef = useRef(restoreNote);
   useLayoutEffect(() => {
     restoreRef.current = restoreNote;
@@ -388,6 +437,7 @@ export const StickyBoardProvider: React.FC<{ children: React.ReactNode }> = ({ c
     patchNote,
     trashNote,
     restoreNote,
+    moveToBoard,
     deleteForever,
     sound,
     drawer,
