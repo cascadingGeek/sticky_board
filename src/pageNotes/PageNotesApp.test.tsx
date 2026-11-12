@@ -352,3 +352,186 @@ describe('details limit', () => {
     expect(note.querySelector('textarea')).toHaveAttribute('maxLength', '10000');
   });
 });
+
+describe('Move to today\'s board on the page (spec 0004)', () => {
+  const answer = (move: unknown, undo: unknown = { ok: true }) =>
+    send.mockImplementation(async (msg: PageRequest) => {
+      if (msg.type === 'page-notes/move-to-board') return move;
+      if (msg.type === 'page-notes/undo-move') return undo;
+      return reply(msg);
+    });
+
+  // covers: AC-1, AC-5, AC-12
+  it('moves the note, leaves a message with Undo in focus, and Undo asks to put it back', async () => {
+    const n = makeNote({ title: 'Call notes', page: page() });
+    await seedNotes(n);
+    answer({ pageId: n.id, boardId: 'b1' });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: "Move Call notes to today's board" }));
+
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent("Moved to today's board");
+    expect(screen.getByRole('button', { name: 'Undo' })).toHaveFocus();
+    expect(screen.queryByRole('region', { name: 'Sticky note: Call notes' })).not.toBeInTheDocument();
+    expect(requests('page-notes/move-to-board')).toEqual([{ type: 'page-notes/move-to-board', id: n.id }]);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(requests('page-notes/undo-move')).toEqual([{ type: 'page-notes/undo-move', pageId: n.id, boardId: 'b1' }]);
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+  });
+
+  // covers: AC-5
+  it('clears the message after 6 seconds', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const n = makeNote({ title: 'Call notes', page: page() });
+    await seedNotes(n);
+    answer({ pageId: n.id, boardId: 'b1' });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: "Move Call notes to today's board" }));
+    await screen.findByRole('status');
+    // The 6 second timer starts in the same step that moves focus to Undo.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Undo' })).toHaveFocus());
+    act(() => vi.advanceTimersByTime(6000));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  // covers: AC-6
+  it('keeps the note and says why on a full day', async () => {
+    const n = makeNote({ title: 'Call notes', page: page() });
+    await seedNotes(n);
+    answer({ error: 'day-full' });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: "Move Call notes to today's board" }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('This day already has 50 notes');
+    expect(screen.getByRole('region', { name: 'Sticky note: Call notes' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: "Move Call notes to today's board" })).toBeEnabled();
+  });
+
+  // covers: AC-7
+  it('says when the note was already moved, and when the background does not answer', async () => {
+    const a = makeNote({ title: 'Gone one', page: page() });
+    const b = makeNote({ title: 'Stuck one', page: page() });
+    await seedNotes(a, b);
+    send.mockImplementation(async (msg: PageRequest) => {
+      if (msg.type === 'page-notes/move-to-board') {
+        if (msg.id === a.id) return { error: 'gone' };
+        throw new Error('Extension context invalidated');
+      }
+      return reply(msg);
+    });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: "Move Gone one to today's board" }));
+    expect(await screen.findByRole('status')).toHaveTextContent('This note was already moved or deleted.');
+    await userEvent.click(screen.getByRole('button', { name: "Move Stuck one to today's board" }));
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't move the note. Try again.");
+  });
+
+  it('sends text typed just before the move first', async () => {
+    const n = makeNote({ title: 'Call notes', page: page() });
+    await seedNotes(n);
+    answer({ pageId: n.id, boardId: 'b1' });
+    mount();
+    const note = await screen.findByRole('region', { name: 'Sticky note: Call notes' });
+    await userEvent.type(note.querySelector('textarea')!, 'last words');
+    await userEvent.click(screen.getByRole('button', { name: "Move Call notes to today's board" }));
+    await screen.findByRole('status');
+    const types = send.mock.calls.map(c => (c[0] as PageRequest).type);
+    expect(types.indexOf('page-notes/patch')).toBeGreaterThan(-1);
+    expect(types.indexOf('page-notes/patch')).toBeLessThan(types.indexOf('page-notes/move-to-board'));
+  });
+
+  // covers: AC-5 (each move gets its own message)
+  it('leaves one message per move when two notes move in a row', async () => {
+    const a = makeNote({ title: 'First', page: page() });
+    const b = makeNote({ title: 'Second', page: page(), positionY: 48 });
+    await seedNotes(a, b);
+    send.mockImplementation(async (msg: PageRequest) =>
+      msg.type === 'page-notes/move-to-board' ? { pageId: msg.id, boardId: `board-${msg.id}` } : reply(msg),
+    );
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: "Move First to today's board" }));
+    await screen.findByRole('status');
+    await userEvent.click(screen.getByRole('button', { name: "Move Second to today's board" }));
+
+    await waitFor(() => expect(screen.getAllByRole('status')).toHaveLength(2));
+    expect(screen.getAllByRole('button', { name: 'Undo' })).toHaveLength(2);
+  });
+
+  // covers: AC-1 (open notes only), AC-12
+  it('offers no Move button on a collapsed note', async () => {
+    await seedNotes(makeNote({ title: 'Tucked away', page: page(), collapsed: true }));
+    mount();
+    expect(await screen.findByRole('button', { name: /Open note: Tucked away/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: "Move Tucked away to today's board" })).not.toBeInTheDocument();
+  });
+
+  // covers: AC-11
+  it('says the page is full when Undo is refused, and keeps the message', async () => {
+    const n = makeNote({ title: 'Call notes', page: page() });
+    await seedNotes(n);
+    answer({ pageId: n.id, boardId: 'b1' }, { error: 'limit' });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: "Move Call notes to today's board" }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    expect(await screen.findByRole('status')).toHaveTextContent(LIMIT_MESSAGE);
+    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+  });
+
+  // covers: AC-11
+  it('says the page note is gone when it was emptied from Trash', async () => {
+    const n = makeNote({ title: 'Call notes', page: page() });
+    await seedNotes(n);
+    answer({ pageId: n.id, boardId: 'b1' }, { error: 'gone' });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: "Move Call notes to today's board" }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    expect(await screen.findByRole('status')).toHaveTextContent("Couldn't undo, the page note is no longer in Trash.");
+  });
+
+  it('gives the general Undo error, not the Trash one, when the pair does not match', async () => {
+    const n = makeNote({ title: 'Call notes', page: page() });
+    await seedNotes(n);
+    answer({ pageId: n.id, boardId: 'b1' }, { error: 'invalid' });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: "Move Call notes to today's board" }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    expect(await screen.findByRole('status')).toHaveTextContent("Couldn't undo. Please try again.");
+  });
+
+  // A move that answers after the page moved to another address leaves no message there.
+  it.each([
+    ['moved', (id: string) => ({ pageId: id, boardId: 'b1' })],
+    ['gone', () => ({ error: 'gone' })],
+  ])('shows no message on the new address when a %s reply comes late', async (_, answerFor) => {
+    const n = makeNote({ title: 'Call notes', page: page() });
+    await seedNotes(n);
+    let finish!: (v: unknown) => void;
+    send.mockImplementation(async (msg: PageRequest) =>
+      msg.type === 'page-notes/move-to-board' ? new Promise(r => (finish = r)) : reply(msg),
+    );
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: "Move Call notes to today's board" }));
+    act(() => {
+      bridge.emit({ type: 'location', href: `${location.origin}/elsewhere` });
+      history.pushState(null, '', '/elsewhere');
+    });
+
+    await act(async () => finish(answerFor(n.id)));
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('clears the message when the page moves to another address', async () => {
+    const n = makeNote({ title: 'Call notes', page: page() });
+    await seedNotes(n);
+    answer({ pageId: n.id, boardId: 'b1' });
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: "Move Call notes to today's board" }));
+    await screen.findByRole('status');
+    act(() => {
+      bridge.emit({ type: 'location', href: `${location.origin}/elsewhere` });
+      history.pushState(null, '', '/elsewhere');
+    });
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});

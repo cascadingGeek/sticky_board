@@ -3,9 +3,9 @@
  * registered content script, injection on demand, and every write a page asks for.
  */
 import { resolveTz, todayInTz } from './dates';
-import { isPageRequest, PING_REPLY, type HelloReply, type PageCommand, type PageRequest, type WriteReply } from './pageMessages';
+import { isPageRequest, PING_REPLY, type HelloReply, type MoveReply, type PageCommand, type PageRequest, type UndoMoveReply, type WriteReply } from './pageMessages';
 import { nextPageZ, normalizePageUrl, pageTitleFrom, sanitizePagePatch } from './pageNotes';
-import { createPageNote, notes, settings } from './storage';
+import { createPageNote, movePageNoteToBoard, notes, settings, undoMoveToBoard } from './storage';
 import { NOTE_COLORS, TITLE_MAX, type NoteColor } from '../types';
 
 export const PAGE_SCRIPT_ID = 'page-notes';
@@ -154,7 +154,7 @@ export const senderPage = (sender: chrome.runtime.MessageSender): { url: string;
 const today = async () => todayInTz(resolveTz((await settings.get()).timezone));
 
 /** Applies one request from a page. The page's address always comes from the sender, never the message. */
-export const handlePageRequest = async (msg: PageRequest, sender: chrome.runtime.MessageSender): Promise<HelloReply | WriteReply | { ok: boolean }> => {
+export const handlePageRequest = async (msg: PageRequest, sender: chrome.runtime.MessageSender): Promise<HelloReply | WriteReply | MoveReply | UndoMoveReply | { ok: boolean }> => {
   const page = senderPage(sender);
   if (!page) return { error: 'invalid' };
 
@@ -188,6 +188,24 @@ export const handlePageRequest = async (msg: PageRequest, sender: chrome.runtime
         return { note: await notes.patch(current.id, fields) };
       } catch {
         return { error: 'gone' };
+      }
+    }
+    case 'page-notes/move-to-board': {
+      if (typeof msg.id !== 'string' || !msg.id) return { error: 'invalid' };
+      try {
+        const r = await movePageNoteToBoard(msg.id, page.url);
+        return typeof r === 'string' ? { error: r } : { pageId: r.page.id, boardId: r.board.id };
+      } catch {
+        return { error: 'failed' };
+      }
+    }
+    case 'page-notes/undo-move': {
+      if (typeof msg.pageId !== 'string' || !msg.pageId || typeof msg.boardId !== 'string' || !msg.boardId) return { error: 'invalid' };
+      try {
+        const r = await undoMoveToBoard(msg.pageId, msg.boardId, page.url);
+        return typeof r === 'string' ? { error: r } : { ok: true };
+      } catch {
+        return { error: 'failed' };
       }
     }
     case 'page-notes/open-access': {

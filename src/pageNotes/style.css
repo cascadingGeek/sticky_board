@@ -253,6 +253,39 @@
   filter: brightness(1.25);
 }
 
+.sb-icon:disabled,
+.sb-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* The message left where a note was moved to today's board (spec 0004). */
+.sb-moved {
+  position: absolute;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  max-width: 320px;
+  padding: 10px 16px 10px 10px;
+  border-radius: 12px;
+  background: #fffdf5;
+  color: var(--sb-dark);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  font-family: var(--plain-font);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  /* Notes stack 24px apart, so the message lies over the next note's top bar.
+     Only Undo takes clicks; the rest lets them through to that note. */
+  pointer-events: none;
+}
+
+.sb-moved .sb-btn {
+  pointer-events: auto;
+}
+
 .sb-hint {
   margin-top: auto;
   padding-top: 6px;

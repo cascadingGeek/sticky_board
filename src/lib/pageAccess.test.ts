@@ -163,3 +163,56 @@ describe('pin from the menu or shortcut', () => {
     expect(chrome.notifications.create).not.toHaveBeenCalled();
   });
 });
+
+describe('move to board requests (spec 0004)', () => {
+  // covers: AC-1, AC-9
+  it("moves a note on the sender's page and refuses one from another page", async () => {
+    const mine = makeNote({ page: { url: PAGE_URL, title: 'Shop page' } });
+    const theirs = makeNote({ page: { url: 'https://other.io/', title: '' } });
+    await seedNotes(mine, theirs);
+
+    const r = await handlePageRequest({ type: 'page-notes/move-to-board', id: mine.id }, sender());
+    expect(r).toEqual({ pageId: mine.id, boardId: expect.any(String) });
+    expect(await handlePageRequest({ type: 'page-notes/move-to-board', id: theirs.id }, sender())).toEqual({ error: 'gone' });
+    expect((await storedNotes()).find(n => n.id === theirs.id)).not.toHaveProperty('deletedAt');
+
+    const { boardId } = r as { boardId: string };
+    expect(await handlePageRequest({ type: 'page-notes/undo-move', pageId: mine.id, boardId }, sender())).toEqual({ ok: true });
+    expect((await storedNotes()).find(n => n.id === mine.id)).not.toHaveProperty('deletedAt');
+  });
+
+  it('refuses ids that are not text', async () => {
+    const bad = (m: unknown) => handlePageRequest(m as Parameters<typeof handlePageRequest>[0], sender());
+    expect(await bad({ type: 'page-notes/move-to-board', id: 42 })).toEqual({ error: 'invalid' });
+    expect(await bad({ type: 'page-notes/move-to-board', id: '' })).toEqual({ error: 'invalid' });
+    expect(await bad({ type: 'page-notes/undo-move', pageId: 'a' })).toEqual({ error: 'invalid' });
+  });
+
+  // covers: AC-6
+  it('passes on a full day', async () => {
+    const mine = makeNote({ page: { url: PAGE_URL, title: '' } });
+    const day = new Date().toISOString().slice(0, 10);
+    await seedNotes(mine, ...Array.from({ length: 50 }, () => makeNote({ dateStr: day })));
+    expect(await handlePageRequest({ type: 'page-notes/move-to-board', id: mine.id }, sender())).toEqual({ error: 'day-full' });
+  });
+
+  // covers: AC-9
+  it("refuses an Undo about another page's note, and changes nothing", async () => {
+    const theirs = makeNote({ page: { url: 'https://other.io/', title: '' } });
+    await seedNotes(theirs);
+    const moved = await handlePageRequest({ type: 'page-notes/move-to-board', id: theirs.id }, sender({ url: 'https://other.io/', tab: { ...sender().tab!, url: 'https://other.io/' } }));
+    const { boardId } = moved as { boardId: string };
+    const before = await storedNotes();
+
+    expect(await handlePageRequest({ type: 'page-notes/undo-move', pageId: theirs.id, boardId }, sender())).toEqual({ error: 'gone' });
+    expect(await storedNotes()).toEqual(before);
+  });
+
+  // covers: AC-9
+  it('refuses move requests from a frame inside the page', async () => {
+    const mine = makeNote({ page: { url: PAGE_URL, title: '' } });
+    await seedNotes(mine);
+    expect(await handlePageRequest({ type: 'page-notes/move-to-board', id: mine.id }, sender({ frameId: 3 }))).toEqual({ error: 'invalid' });
+    expect((await storedNotes())[0]).not.toHaveProperty('deletedAt');
+  });
+});

@@ -5,7 +5,8 @@
  * Notes: one key per note in chrome.storage.local (`note:<id>`).
  * Meta: `meta` in chrome.storage.local. Settings: `settings` in chrome.storage.sync.
  */
-import { firstFreeSpot, isActive, nextZ, pickColor, type Viewport } from '../board';
+import { firstFreeSpot, hostOf, isActive, nextZ, pickColor, type Viewport } from '../board';
+import { resolveTz, todayInTz } from '../dates';
 import { boardNotes, nextPageZ, notesOnPage } from '../pageNotes';
 import { DAY_FULL_MESSAGE, DAY_NOTE_LIMIT, DEFAULT_SETTINGS, PAGE_NOTE_LIMIT, SCHEMA_VERSION, type Meta, type Note, type NoteColor, type PageRef, type Settings } from '../../types';
 import { parseNote, parseSettings } from './validate';
@@ -219,6 +220,71 @@ export const restoreNote = (id: string): Promise<Note | 'limit' | 'day-full' | n
       } else if (countOnDay(all, note.dateStr) >= DAY_NOTE_LIMIT) return 'day-full';
     }
     return notes.patch(id, { deletedAt: undefined });
+  });
+
+export type MoveResult = { board: Note; page: Note } | 'day-full' | 'gone';
+
+/**
+ * Moves a page note to today's board (spec 0004): a new board note built from
+ * it, and the page note to Trash, in one write inside the `note-create` lock.
+ * `pageUrl` (from the sender) limits a website to notes on its own address.
+ */
+export const movePageNoteToBoard = async (id: string, pageUrl?: string): Promise<MoveResult> => {
+  // Let saves already queued for this note land first, so the move reads its latest text.
+  await (queues.get(id) ?? Promise.resolve()).catch(() => undefined);
+  return navigator.locks.request('note-create', async () => {
+    const all = await notes.getAll();
+    const from = all.find(n => n.id === id);
+    if (!from?.page || from.deletedAt || (pageUrl !== undefined && from.page.url !== pageUrl)) return 'gone';
+    const dateStr = todayInTz(resolveTz((await settings.get()).timezone));
+    const board = boardNotes(all);
+    const day = board.filter(n => n.dateStr === dateStr && isActive(n));
+    if (day.length >= DAY_NOTE_LIMIT) return 'day-full';
+    const pos = firstFreeSpot(day, { top: 0, width: 1280 });
+    const ts = nowIso();
+    const moved: Note = {
+      id: crypto.randomUUID(),
+      title: from.title,
+      description: from.description,
+      isCompleted: from.isCompleted,
+      dateStr,
+      noteColor: from.noteColor, // kept as is: the move skips the no repeat color rule
+      subtasks: from.subtasks.map(s => ({ ...s, id: crypto.randomUUID() })),
+      positionX: Math.round(pos.x),
+      positionY: Math.round(pos.y),
+      z: nextZ(board, dateStr),
+      remind: false,
+      source: { url: from.page.url, title: (from.page.title || hostOf(from.page.url)).slice(0, 200) },
+      createdAt: ts,
+      updatedAt: ts,
+    };
+    const trashed: Note = { ...from, deletedAt: ts, updatedAt: ts };
+    await chrome.storage.local.set({ [noteKey(moved.id)]: moved, [noteKey(from.id)]: trashed });
+    return { board: moved, page: trashed };
+  });
+};
+
+export type UndoMoveResult = { page: Note; board: Note | null } | 'limit' | 'gone' | 'invalid';
+
+/**
+ * Undoes a move (spec 0004): the page note comes back first (refused on a full
+ * page), then the board note goes to Trash. Two writes in that order, so a
+ * failure between them leaves both notes, never neither.
+ */
+export const undoMoveToBoard = (pageId: string, boardId: string, pageUrl?: string): Promise<UndoMoveResult> =>
+  navigator.locks.request('note-create', async () => {
+    const all = await notes.getAll();
+    const page = all.find(n => n.id === pageId);
+    if (!page?.page || (pageUrl !== undefined && page.page.url !== pageUrl)) return 'gone';
+    const board = all.find(n => n.id === boardId) ?? null;
+    if (board && (board.page || board.source?.url !== page.page.url)) return 'invalid';
+    let restored = page;
+    if (page.deletedAt) {
+      if (notesOnPage(all, page.page.url).length >= PAGE_NOTE_LIMIT) return 'limit';
+      restored = await notes.patch(pageId, { deletedAt: undefined });
+    }
+    const after = board && !board.deletedAt ? await notes.patch(boardId, { deletedAt: nowIso() }) : board;
+    return { page: restored, board: after };
   });
 
 export const meta = {

@@ -12,10 +12,15 @@ export type PageRequest =
   | { type: 'page-notes/create'; x: number; y: number; title: string; color?: NoteColor }
   | { type: 'page-notes/patch'; id: string; fields: PagePatch }
   | { type: 'page-notes/trash'; id: string }
+  | { type: 'page-notes/move-to-board'; id: string }
+  | { type: 'page-notes/undo-move'; pageId: string; boardId: string }
   | { type: 'page-notes/open-access'; host: string };
 
 export type HelloReply = { allowed: boolean };
 export type WriteReply = { note: Note } | { error: 'limit' | 'gone' | 'invalid' | 'failed' };
+/** Moving a page note to today's board (spec 0004). */
+export type MoveReply = { pageId: string; boardId: string } | { error: 'day-full' | 'gone' | 'invalid' | 'failed' };
+export type UndoMoveReply = { ok: true } | { error: 'limit' | 'gone' | 'invalid' | 'failed' };
 
 /** Site access window → background. */
 export type AccessGranted = { type: 'site-access/granted'; tabId: number };
