@@ -1,8 +1,4 @@
-/**
- * Messages between the page-notes content script, the site access window and
- * the background worker (spec 0002, API surface). Pages never write storage:
- * every write is a message the background checks and applies.
- */
+/** Messages between the content script, the Allow window and the background. Pages never write storage. */
 import type { Note, NoteColor } from '../types';
 import type { PagePatch } from './pageNotes';
 
@@ -18,7 +14,7 @@ export type PageRequest =
 
 export type HelloReply = { allowed: boolean };
 export type WriteReply = { note: Note } | { error: 'limit' | 'gone' | 'invalid' | 'failed' };
-/** Moving a page note to today's board (spec 0004). */
+/** Moving a page note to today's board. */
 export type MoveReply = { pageId: string; boardId: string } | { error: 'day-full' | 'gone' | 'invalid' | 'failed' };
 export type UndoMoveReply = { ok: true } | { error: 'limit' | 'gone' | 'invalid' | 'failed' };
 

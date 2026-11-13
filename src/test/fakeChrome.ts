@@ -111,7 +111,7 @@ export const installFakeChrome = () => {
       sendMessage: vi.fn(async (..._args: unknown[]): Promise<unknown> => undefined),
     },
     windows: { update: vi.fn(async () => ({})), create: vi.fn(async () => ({})) },
-    // Site access (spec 0002). `granted` holds the origins Chrome has allowed.
+    // Site access. `granted` holds the origins Chrome has allowed.
     permissions: {
       getAll: vi.fn(async () => ({ origins: [...granted], permissions: [] })),
       contains: vi.fn(async ({ origins = [] }: { origins?: string[] }) =>

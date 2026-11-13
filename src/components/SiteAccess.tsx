@@ -1,7 +1,6 @@
 /**
- * The small Allow window (spec 0002, AC-4). Chrome only asks for site access
- * from a click on an extension page, so the note on the page opens this window
- * and its button makes the request for that one site.
+ * The small Allow window. Chrome only asks for site access from a click on an
+ * extension page, so a page note opens this window to ask for its site.
  */
 import { useState } from 'react';
 import { siteOrigin } from '../lib/pageAccess';

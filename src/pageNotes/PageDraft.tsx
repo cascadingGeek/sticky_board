@@ -21,7 +21,7 @@ interface PageDraftProps {
 }
 
 /**
- * A blank note that exists only on the page until it has a title (AC-2).
+ * A blank note that exists only on the page until it has a title.
  * Enter or clicking away saves; an empty title or Esc discards it.
  */
 export function PageDraft({ draft, onChange, onCommit, onDiscard }: PageDraftProps) {

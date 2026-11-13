@@ -1,11 +1,6 @@
 /**
- * Page notes content script (spec 0002). Never listed in the manifest: the
- * background registers it at run time for allowed sites, and injects it on
- * demand (activeTab) when you pin or ask to see notes. Top frame only.
- *
- * The UI lives in a closed shadow root on <sticky-board-notes>, so site CSS
- * and scripts can't reach it. It reads storage directly and sends every
- * write to the background.
+ * Page notes content script. Not in the manifest: the background registers it
+ * for allowed sites and injects it on demand. The UI lives in a closed shadow root.
  */
 import { createRoot, type Root } from 'react-dom/client';
 import type { ContentScriptContext } from 'wxt/utils/content-script-context';
@@ -54,7 +49,7 @@ export default defineContentScript({
 
     // The last right click spot, for "Pin a note here" on an allowed site.
     ctx.addEventListener(window, 'contextmenu', e => bridge.setContextSpot((e as MouseEvent).pageX, (e as MouseEvent).pageY), { capture: true });
-    // Single page apps (AC-14) and the back button cache (fresh notes on return).
+    // Single page apps and the back button cache (fresh notes on return).
     // The event fires before location.href changes, so pass on its new address.
     ctx.addEventListener(window, 'wxt:locationchange', e => bridge.emit({ type: 'location', href: e.newUrl.href }));
     ctx.addEventListener(window, 'pageshow', e => {
@@ -62,7 +57,7 @@ export default defineContentScript({
     });
 
     // After an update or reload of the extension this copy can't save any
-    // more: notice it, remove the notes, and step aside (AC-20).
+    // more: notice it, remove the notes, and step aside.
     const check = window.setInterval(() => void ctx.isInvalid, VALIDITY_CHECK_MS);
     ctx.onInvalidated(() => {
       window.clearInterval(check);
@@ -115,13 +110,9 @@ export default defineContentScript({
     });
     if (ctx.isInvalid) return;
 
-    // Chat sites (ChatGPT, Claude) catch keys and pastes from capture
-    // listeners we can't stop. When the target isn't editable they cancel
-    // the event and type or paste into their own box instead. From outside,
-    // every event from a note looks like it comes from our host, so while
-    // focus is in a note the host is marked editable and those sites leave
-    // the event alone. The shadow content doesn't inherit it, so nothing in
-    // the note becomes editable that wasn't already.
+    // Chat sites (ChatGPT, Claude) cancel keys and pastes aimed at non editable
+    // targets. While focus is in a note, the host is marked editable so they
+    // leave the event alone.
     let lastFocused: HTMLElement | null = null;
     ui.shadow.addEventListener('focusin', e => {
       lastFocused = e.target as HTMLElement;

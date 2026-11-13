@@ -1,7 +1,6 @@
 /**
- * The reminder check (spec 0001 child 0004). Runs in the background worker on
- * every start, when the `reminders` alarm fires, and when notes or settings
- * change. One alarm is kept, set for the next due reminder.
+ * The reminder check, run by the background on start, on the `reminders` alarm
+ * and when notes or settings change. One alarm is kept, for the next reminder.
  */
 import { formatTime, resolveTz, zonedToEpoch } from './dates';
 import { boardNotes } from './pageNotes';

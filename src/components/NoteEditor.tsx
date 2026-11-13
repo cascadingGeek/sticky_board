@@ -7,8 +7,8 @@ import { isActive } from '../lib/board';
 import { DAY_NOTE_LIMIT, DESCRIPTION_MAX, SUBTASKS_MAX, TITLE_MAX, type Note, type Subtask } from '../types';
 import { Pin } from './Pin';
 
-/** Saved 500 ms after you stop typing (the same delay as notes on websites). */
-export const EDITOR_SAVE_DELAY = 500;
+/** Saves 500 ms after you stop typing. */
+const EDITOR_SAVE_DELAY = 500;
 const SAVE_ERROR = "Couldn't save the note. Your text is still here, try again.";
 
 interface Values {
@@ -30,9 +30,8 @@ const valuesOf = (n: Note): Values => ({
 });
 
 /**
- * The checklist to save. A closing save drops emptied items. A timed save
- * keeps an emptied item at its last saved text (you may be retyping it) and
- * leaves out a new item that is still empty (spec 0003, AC-27).
+ * The checklist to save. A closing save drops emptied items; a timed save keeps
+ * an emptied item's last text (you may be retyping it) and skips new empty ones.
  */
 const checklistToSave = (items: Subtask[], saved: Subtask[], closing: boolean): Subtask[] => {
   const savedById = new Map(saved.map(s => [s.id, s]));
@@ -66,9 +65,8 @@ const box = 'h-10 w-full rounded-[10px] border border-solid border-[var(--paper-
 const errorText = 'm-0 flex items-center gap-1.5 text-[13px] font-semibold text-[var(--paper-danger)]';
 
 /**
- * The note editor (spec 0003, AC-14 and AC-27): the note's own paper, saving
- * as you type. Done, the close button, Esc and the scrim send any waiting
- * change and close; there is no Cancel.
+ * The note editor, saving as you type. Done, Close, Esc and the scrim send any
+ * waiting change and close; there is no Cancel.
  */
 export function NoteEditor({ note }: { note: Note }) {
   const { notes, setEditorId, patchNote, trashNote } = useStickyBoard();

@@ -1,8 +1,6 @@
 /**
- * Background service worker: right click capture, reminders, trash purge,
- * migrations, opening the board, and page notes (spec 0002). It keeps no state between events;
- * everything is read from storage each time. All listeners are registered
- * at the top level so Chrome can wake the worker for any of them.
+ * Background service worker. It keeps no state between events, and every
+ * listener is registered at the top level so Chrome can wake it for any of them.
  */
 import { captureLink, captureSelection } from '../lib/capture';
 import { resolveTz, todayInTz } from '../lib/dates';
@@ -66,7 +64,7 @@ export default defineBackground(() => {
     await purgeTrash();
   });
 
-  // Site access changed (the Allow window, Settings, or Chrome itself): register for exactly those sites.
+  // Site access changed: register for exactly the allowed sites.
   chrome.permissions.onAdded.addListener(() => void syncRegistration().catch(() => undefined));
   chrome.permissions.onRemoved.addListener(() => void syncRegistration().catch(() => undefined));
 
@@ -120,8 +118,7 @@ export default defineBackground(() => {
     await openBoard(await today());
   });
 
-  // Every wake: make sure alarms exist and nothing due was missed (covers
-  // browser start, install, update, reload and waking from sleep).
+  // Every wake (start, install, update, sleep): make sure alarms exist and nothing due was missed.
   void ensureAlarms();
   void runReminderCheck();
 });

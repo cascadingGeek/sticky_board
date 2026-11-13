@@ -58,7 +58,7 @@ function AppContent() {
         return;
       }
       if (e.key === 'Escape') {
-        // The editor handles its own Esc, so it can save first (spec 0003, AC-27).
+        // The editor handles its own Esc, so it can save first.
         if (editorId) return;
         if (searchOpen) setSearchOpen(false);
         else if (drawer) openDrawer(null);
@@ -112,7 +112,7 @@ const GHOSTS = [
   { left: 540, top: 505, r: -2.5 },
 ];
 
-/** First load (spec 0003, AC-12): faint paper ghosts and a "Loading your board" pill. */
+/** First load: faint paper ghosts and a "Loading your board" pill. */
 function LoadingBoard() {
   return (
     <div className="board-surface relative min-h-screen overflow-hidden text-ink" aria-busy="true">
@@ -136,7 +136,7 @@ function LoadingBoard() {
   );
 }
 
-/** The first load failed (spec 0003, AC-12). Notes are still in storage; a reload tries again. */
+/** The first load failed. Notes are still in storage; a reload tries again. */
 function BoardLoadError() {
   return (
     <div className="board-surface relative min-h-screen text-ink">

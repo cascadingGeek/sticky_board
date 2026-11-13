@@ -4,7 +4,7 @@ import { afterEach, beforeEach } from 'vitest';
 import { installFakeChrome } from './fakeChrome';
 import { resetTimeFormat } from '../lib/dates';
 
-// Pin the locale to en-US so time text ("3:00 PM") is the same on every machine (spec 0003).
+// Pin the locale to en-US so time text ("3:00 PM") is the same on every machine.
 const NativeDateTimeFormat = Intl.DateTimeFormat;
 Intl.DateTimeFormat = function (locales?: string | string[], options?: Intl.DateTimeFormatOptions) {
   return new NativeDateTimeFormat(locales ?? 'en-US', options);

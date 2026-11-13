@@ -1,7 +1,4 @@
-/**
- * Page notes (spec 0002): the shared rules for notes pinned on web pages.
- * Used by the board, the background worker and the page-notes content script.
- */
+/** Shared rules for notes pinned on web pages, used by the board, background and content script. */
 import {
   DESCRIPTION_MAX,
   NOTE_GAP,
@@ -33,8 +30,6 @@ export const normalizePageUrl = (value: string | undefined): string | null => {
   }
 };
 
-export const isPageNote = (n: Note): boolean => !!n.page;
-
 /** The one selector that keeps page notes off the day board, calendar, carry over and reminders. */
 export const boardNotes = (all: Note[]): Note[] => all.filter(n => !n.page);
 
@@ -62,8 +57,8 @@ export const nextPageZ = (all: Note[], url: string): number =>
   notesOnPage(all, url).reduce((max, n) => Math.max(max, n.z ?? 0), 0) + 1;
 
 /**
- * The shortcut spot (AC-3): 24 px in from the visible top left, moved down and
- * right 24 px for each active note whose saved spot is within 12 px of it.
+ * The shortcut spot: 24 px in from the visible top left, moved 24 px down and
+ * right for each note already within 12 px of it.
  */
 export const stackedSpot = (pageNotes: Note[], scrollX: number, scrollY: number): { x: number; y: number } => {
   let x = Math.round(scrollX + NOTE_GAP);
@@ -90,10 +85,7 @@ export type PagePatch = Partial<Pick<Note, 'title' | 'description' | 'subtasks' 
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
-/**
- * Checks the fields a page may change and returns a clean patch, or null when
- * anything is invalid. Unknown fields are dropped.
- */
+/** A clean patch of the fields a page may change, or null if any is invalid. */
 export const sanitizePagePatch = (raw: unknown): PagePatch | null => {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;

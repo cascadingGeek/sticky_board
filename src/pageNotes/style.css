@@ -1,10 +1,6 @@
 /*
- * Notes on websites (spec 0002, restyled by spec 0003). Loaded inside a closed
- * shadow root, so site CSS can't reach it. Sizes are px (never rem, which
- * follows the site's root font size). The paper, pin and grain come from the
- * shared partial; website notes always use its Light values, whatever the
- * board theme. The `!important` on :host wins over any site rule aimed at our
- * element.
+ * Notes on websites, inside a closed shadow root. Sizes are px, never rem
+ * (which follows the site's font size). Always the Light paper values.
  */
 @import "../styles/paper.css";
 
@@ -29,7 +25,7 @@
 }
 
 .sb-root {
-  /* The bundled handwriting font, registered under a private name (AC-24). */
+  /* The bundled handwriting font, registered under a private name. */
   --hand-font: "SB Hand", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --plain-font: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --sb-dark: #1f1f22;
@@ -163,7 +159,7 @@
   padding-bottom: 2px;
 }
 
-/* Handwriting off (Settings): Inter sizes, as on the board (AC-7). */
+/* Handwriting off (Settings): Inter sizes, as on the board. */
 .no-handwriting .sb-field {
   font-family: var(--plain-font);
   font-size: 14px;
@@ -259,7 +255,7 @@
   cursor: default;
 }
 
-/* The message left where a note was moved to today's board (spec 0004). */
+/* The message left where a note was moved to today's board. */
 .sb-moved {
   position: absolute;
   z-index: 2147483000;

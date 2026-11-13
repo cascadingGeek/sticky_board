@@ -1,9 +1,6 @@
 /**
- * The storage layer (spec 0001 child 0002). It is the ONLY code that calls
- * chrome.storage. The new tab page and the background worker both use it.
- *
- * Notes: one key per note in chrome.storage.local (`note:<id>`).
- * Meta: `meta` in chrome.storage.local. Settings: `settings` in chrome.storage.sync.
+ * The only code that calls chrome.storage. Notes live one per key in local
+ * (`note:<id>`), meta under `meta` in local, and settings in sync.
  */
 import { firstFreeSpot, hostOf, isActive, nextZ, pickColor, type Viewport } from '../board';
 import { resolveTz, todayInTz } from '../dates';
@@ -68,10 +65,7 @@ export const notes = {
     return normalize(res[key]);
   },
 
-  /**
-   * The only way to change an existing note: reads the latest stored copy,
-   * merges only `fields`, sets updatedAt, writes. Rejects if the note is gone.
-   */
+  /** Merges `fields` into the latest stored copy. Rejects if the note is gone. */
   patch(id: string, fields: Partial<Note>): Promise<Note> {
     return enqueue(id, async () => {
       const current = await notes.get(id);
@@ -124,7 +118,6 @@ export interface NewNoteInput {
   preferredColor?: NoteColor;
 }
 
-/** Thrown when a day's board already holds DAY_NOTE_LIMIT notes. */
 export class DayFullError extends Error {
   constructor() {
     super(DAY_FULL_MESSAGE);
@@ -132,14 +125,12 @@ export class DayFullError extends Error {
   }
 }
 
-/** Active board notes on `dateStr`, leaving out `exceptId`. */
 export const countOnDay = (all: Note[], dateStr: string, exceptId?: string) =>
   boardNotes(all).filter(n => n.dateStr === dateStr && isActive(n) && n.id !== exceptId).length;
 
 /**
- * Creates a note inside the `note-create` lock shared by every tab and the
- * background worker, so the color rule, z and the day limit never race.
- * Throws DayFullError when the day already has DAY_NOTE_LIMIT notes.
+ * Runs inside the `note-create` lock shared by every tab and the background,
+ * so the color rule, z and the day limit never race.
  */
 export const createNote = (input: NewNoteInput): Promise<Note> =>
   navigator.locks.request('note-create', async () => {
@@ -171,14 +162,14 @@ export const createNote = (input: NewNoteInput): Promise<Note> =>
 
 export interface NewPageNoteInput {
   title: string;
-  page: PageRef; // built by the background from the sender tab, never from the page's message
+  page: PageRef; // from the sender tab, never from the page's message
   x: number;
   y: number;
   dateStr: string;
   preferredColor?: NoteColor;
 }
 
-/** Creates a page note, or refuses with 'limit' when the page already has 50 active notes (AC-18). */
+/** Refuses with 'limit' when the page already has 50 active notes. */
 export const createPageNote = (input: NewPageNoteInput): Promise<Note | 'limit'> =>
   navigator.locks.request('note-create', async () => {
     const all = await notes.getAll();
@@ -205,9 +196,8 @@ export const createPageNote = (input: NewPageNoteInput): Promise<Note | 'limit'>
   });
 
 /**
- * Takes a note out of Trash. A page note goes back only when its page has
- * room (AC-10), a board note only when its day has room ('day-full'); the
- * check runs in the same `note-create` lock as creating.
+ * A page note needs room on its page and a board note room on its day,
+ * checked inside the same `note-create` lock as creating.
  */
 export const restoreNote = (id: string): Promise<Note | 'limit' | 'day-full' | null> =>
   navigator.locks.request('note-create', async () => {
@@ -225,9 +215,8 @@ export const restoreNote = (id: string): Promise<Note | 'limit' | 'day-full' | n
 export type MoveResult = { board: Note; page: Note } | 'day-full' | 'gone';
 
 /**
- * Moves a page note to today's board (spec 0004): a new board note built from
- * it, and the page note to Trash, in one write inside the `note-create` lock.
- * `pageUrl` (from the sender) limits a website to notes on its own address.
+ * Moves a page note to today's board in one write inside `note-create`.
+ * `pageUrl` comes from the sender, so a site can only move its own notes.
  */
 export const movePageNoteToBoard = async (id: string, pageUrl?: string): Promise<MoveResult> => {
   // Let saves already queued for this note land first, so the move reads its latest text.
@@ -248,7 +237,7 @@ export const movePageNoteToBoard = async (id: string, pageUrl?: string): Promise
       description: from.description,
       isCompleted: from.isCompleted,
       dateStr,
-      noteColor: from.noteColor, // kept as is: the move skips the no repeat color rule
+      noteColor: from.noteColor, // the no repeat color rule doesn't apply to moves
       subtasks: from.subtasks.map(s => ({ ...s, id: crypto.randomUUID() })),
       positionX: Math.round(pos.x),
       positionY: Math.round(pos.y),
@@ -267,9 +256,8 @@ export const movePageNoteToBoard = async (id: string, pageUrl?: string): Promise
 export type UndoMoveResult = { page: Note; board: Note | null } | 'limit' | 'gone' | 'invalid';
 
 /**
- * Undoes a move (spec 0004): the page note comes back first (refused on a full
- * page), then the board note goes to Trash. Two writes in that order, so a
- * failure between them leaves both notes, never neither.
+ * The page note comes back first (refused on a full page), then the board note
+ * goes to Trash, so a failure between the writes leaves both, never neither.
  */
 export const undoMoveToBoard = (pageId: string, boardId: string, pageUrl?: string): Promise<UndoMoveResult> =>
   navigator.locks.request('note-create', async () => {
@@ -354,13 +342,11 @@ export const purgeTrash = async (now = Date.now()): Promise<number> => {
 };
 
 /**
- * Spec 0003, AC-2: Light became the default theme. Once only, an existing user
- * (onboarding finished) who never saved a theme gets `dark` saved so their
- * board doesn't change. Reads the raw sync object (parseSettings would fill in
- * the default and hide the missing key) and writes only the theme key on top
- * of it. If sync storage fails, the marker stays unset so the next update tries again.
+ * Light became the default theme. Existing users who never saved one get `dark`
+ * saved once, so their board doesn't change. Reads raw sync data, since
+ * parseSettings would fill in the default.
  */
-export const settleThemeDefault = async (): Promise<void> => {
+const settleThemeDefault = async (): Promise<void> => {
   const m = await meta.get();
   if (m.themeDefaultCheckedAt) return;
   try {

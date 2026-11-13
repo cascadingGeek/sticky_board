@@ -1,10 +1,9 @@
-// The Latin subset of Caveat Brush, inlined into the content script as a
-// base64 data URL, so no font file is exposed to sites and nothing is fetched
-// (spec 0003, AC-24).
+// The Latin subset of Caveat Brush, inlined as a data URL so no font file is
+// exposed to sites and nothing is fetched.
 import fontUrl from '@fontsource/caveat-brush/files/caveat-brush-latin-400-normal.woff2?inline';
 
 /** The private family name website notes use, so a site's own fonts never clash. */
-export const HAND_FAMILY = 'SB Hand';
+const HAND_FAMILY = 'SB Hand';
 
 let loading: Promise<boolean> | null = null;
 

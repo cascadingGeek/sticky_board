@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { grantedWebOrigins, splitOrigins, type SiteAccess } from './pageAccess';
 
 /**
- * The sites Sticky Board may show notes on by itself, kept current while the
- * caller is mounted (access can change in the Allow window or in Chrome).
+ * The sites Sticky Board may show notes on, kept current while mounted.
  * `access` is null until the first read; `error` is true when a read failed.
  */
 export function useSiteAccess() {

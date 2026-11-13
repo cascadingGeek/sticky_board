@@ -12,9 +12,8 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
 const plural = (n: number) => `${n} ${n === 1 ? 'note' : 'notes'}`;
 
 /**
- * Month grid. Each day shows up to 3 small paper squares in the colours of
- * that day's board notes (not in Trash, first 3 by createdAt). Today is filled
- * with the primary colour, past days are muted. A day click opens that board.
+ * Month grid. Each day shows up to 3 paper squares in the colors of its first
+ * board notes; today is filled and past days are muted. A click opens that day.
  */
 export function CalendarDrawer() {
   const { notes, currentDateStr, setCurrentDateStr, today, settings, openDrawer } = useStickyBoard();

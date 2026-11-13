@@ -12,7 +12,7 @@ import { SiteBadge } from './SiteBadge';
 
 const kbd = 'rounded-md bg-kbd px-1.5 py-0.5 font-mono text-xs font-semibold text-ink';
 
-/** Page notes grouped by site, newest first by when they were created (spec 0002, AC-11). */
+/** Page notes grouped by site, newest first by when they were created. */
 export function PagesDrawer() {
   const { allNotes, trashNote, moveToBoard, openDrawer } = useStickyBoard();
   const { access } = useSiteAccess();

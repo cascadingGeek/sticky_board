@@ -1,7 +1,4 @@
-/**
- * Right click capture (spec 0001 child 0004): turns a selection or a link
- * into a note on today's board.
- */
+/** Right click capture: turns a selection or a link into a note on today's board. */
 import { hostOf, isHttpUrl } from './board';
 import { resolveTz, todayInTz } from './dates';
 import { createNote, settings } from './storage';

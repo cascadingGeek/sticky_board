@@ -1,15 +1,12 @@
-/**
- * Background side of page notes (spec 0002): per site access, the runtime
- * registered content script, injection on demand, and every write a page asks for.
- */
+/** Background side of page notes: site access, the content script, and every page write. */
 import { resolveTz, todayInTz } from './dates';
 import { isPageRequest, PING_REPLY, type HelloReply, type MoveReply, type PageCommand, type PageRequest, type UndoMoveReply, type WriteReply } from './pageMessages';
 import { nextPageZ, normalizePageUrl, pageTitleFrom, sanitizePagePatch } from './pageNotes';
 import { createPageNote, movePageNoteToBoard, notes, settings, undoMoveToBoard } from './storage';
 import { NOTE_COLORS, TITLE_MAX, type NoteColor } from '../types';
 
-export const PAGE_SCRIPT_ID = 'page-notes';
-export const PAGE_SCRIPT_FILE = 'content-scripts/page-notes.js';
+const PAGE_SCRIPT_ID = 'page-notes';
+const PAGE_SCRIPT_FILE = 'content-scripts/page-notes.js';
 export const CANT_NOTE_MESSAGE = "Sticky Board can't add notes on this page.";
 
 /** The access pattern for one site: one exact host (no port), http and https. */
@@ -37,7 +34,7 @@ export interface SiteAccess {
   allSites: string[]; // broad grants made in Chrome (shown as "All sites")
 }
 
-/** Splits granted origins into single sites and broad grants (AC-16). */
+/** Splits granted origins into single sites and broad grants. */
 export const splitOrigins = (origins: string[]): SiteAccess => {
   const hosts: string[] = [];
   const allSites: string[] = [];
@@ -92,12 +89,10 @@ const execute = (tabId: number) =>
   chrome.scripting.executeScript({ target: { tabId }, files: [PAGE_SCRIPT_FILE] });
 
 /**
- * Makes sure the content script runs in the tab's top frame. A script that is
- * already running is kept (so unsaved typing survives); otherwise it is
- * injected, retried once after 500 ms if the tab is still loading. Throws
- * when the page can't take notes.
+ * Makes sure the content script runs in the tab's top frame. A running copy is
+ * kept so unsaved typing survives. Throws when the page can't take notes.
  */
-export const ensureScript = async (tabId: number): Promise<void> => {
+const ensureScript = async (tabId: number): Promise<void> => {
   if (await isRunning(tabId)) return;
   try {
     await execute(tabId);
@@ -109,7 +104,7 @@ export const ensureScript = async (tabId: number): Promise<void> => {
   }
 };
 
-export const notifyCantNote = () =>
+const notifyCantNote = () =>
   chrome.notifications.create({
     type: 'basic',
     iconUrl: chrome.runtime.getURL('icon/128.png'),
@@ -133,7 +128,7 @@ export const pinOnTab = async (tab: chrome.tabs.Tab | undefined, via: 'menu' | '
 };
 
 /** After a grant in the site access window: register, then draw in the tab that asked. */
-export const onAccessGranted = async (tabId: number): Promise<void> => {
+const onAccessGranted = async (tabId: number): Promise<void> => {
   await syncRegistration();
   try {
     await ensureScript(tabId);
@@ -144,7 +139,7 @@ export const onAccessGranted = async (tabId: number): Promise<void> => {
 };
 
 /** The page a message came from, checked: our own content script, top frame, an http(s) tab. */
-export const senderPage = (sender: chrome.runtime.MessageSender): { url: string; title: string; tabId: number } | null => {
+const senderPage = (sender: chrome.runtime.MessageSender): { url: string; title: string; tabId: number } | null => {
   if (sender.id !== chrome.runtime.id || !sender.tab || sender.tab.id === undefined || sender.frameId !== 0) return null;
   const url = normalizePageUrl(sender.tab.url ?? sender.url);
   if (!url) return null;
