@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { pickColor } from '../lib/board';
-import type { HelloReply, MoveReply, PageRequest, UndoMoveReply, WriteReply } from '../lib/pageMessages';
-import { drawnSpot, normalizePageUrl, notesOnPage, stackedSpot, type PagePatch } from '../lib/pageNotes';
-import { notes as noteStore, settings as settingsStore } from '../lib/storage';
-import { DAY_FULL_MESSAGE, PAGE_NOTE_LIMIT, type Note } from '../types';
+import { pickColor } from '../shared/notes';
+import type { HelloReply, MoveReply, PageRequest, UndoMoveReply, WriteReply } from '../shared/messages';
+import { drawnSpot, normalizePageUrl, notesOnPage, stackedSpot, type PagePatch } from '../shared/pageNotes';
+import { notes as noteStore, settings as settingsStore } from '../shared/storage';
+import { DAY_FULL_MESSAGE, PAGE_NOTE_LIMIT, type Note } from '../shared/types';
 import type { Bridge } from './bridge';
 import { loadHandFont } from './font';
 import { MovedMessage, type Notice } from './MovedMessage';

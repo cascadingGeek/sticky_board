@@ -1,7 +1,7 @@
 ---
 source: design-canvas + extracted-from-code
 canvas: https://claude.ai/artifact/6YWUQSwVqvQTs2E6XsfBye
-tokens: src/index.css
+tokens: src/styles/app.css
 paper: src/styles/paper.css
 character: calm, tactile, real paper notes pinned to a wall
 ---
@@ -20,9 +20,9 @@ character: calm, tactile, real paper notes pinned to a wall
 
 ## Where things live
 
-- **Interface tokens**: `src/index.css` (`@theme` holds Light, plus one `[data-theme]` block per theme). Use the semantic utilities: `bg-panel`, `bg-field`, `bg-raise`, `bg-hover`, `text-ink`, `text-ink-soft`, `text-ink-faint`, `border-line`, `bg-accent`, `text-accent-ink`, `bg-accent-wash`, `text-danger`, `bg-danger-wash`, `bg-warn-wash`, `bg-ok-wash`, `bg-mark`, `bg-kbd`, `bg-scrim`, `shadow-panel`, `shadow-pop`, `shadow-toast`.
+- **Interface tokens**: `src/styles/app.css` (`@theme` holds Light, plus one `[data-theme]` block per theme). Use the semantic utilities: `bg-panel`, `bg-field`, `bg-raise`, `bg-hover`, `text-ink`, `text-ink-soft`, `text-ink-faint`, `border-line`, `bg-accent`, `text-accent-ink`, `bg-accent-wash`, `text-danger`, `bg-danger-wash`, `bg-warn-wash`, `bg-ok-wash`, `bg-mark`, `bg-kbd`, `bg-scrim`, `shadow-panel`, `shadow-pop`, `shadow-toast`.
 - **Paper**: `src/styles/paper.css`, plain CSS shared by the board and the content script. A note is `.paper-note.paper-<color>` (the shell with the curls) holding `.paper` (the sheet: colour, glue band, sheen, shadow, grain). `.paper-swatch` gives a flat square of the colour. Text classes: `.note-title`, `.note-text`, `.note-row-title` (list rows), `.editor-title`, `.editor-text`; each has a `.no-handwriting` size.
-- **Pins**: the `Pin` component (`src/components/Pin.tsx`), colour from `pinFor(id)`; tilt from `tiltFor(id)` in `src/lib/board.ts`.
+- **Pins**: the `Pin` component (`src/shared/ui/Pin.tsx`), colour from `pinFor(id)`; tilt from `tiltFor(id)` in `src/shared/notes.ts`.
 - **Shadows**: `--note-drop` and `--note-drop-lift` (dragging and drafts), deeper on Dark, Midnight and Cork.
 - **Reference screens**: the design canvas above (37 boards, light and dark).
 
@@ -30,6 +30,6 @@ character: calm, tactile, real paper notes pinned to a wall
 
 - Do use icons from `lucide-react` with an `aria-label` on icon only buttons.
 - Do keep touch targets at least 44 px.
-- Do put new CSS that must beat utilities inside `@layer base`; unlayered rules in `index.css` and `paper.css` override every Tailwind utility.
-- Don't use raw colors in components; add a token to `src/index.css` or a variable to `src/styles/paper.css` instead (theme preview swatches are the one exception).
+- Do put new CSS that must beat utilities inside `@layer base`; unlayered rules in `app.css` and `paper.css` override every Tailwind utility.
+- Don't use raw colors in components; add a token to `src/styles/app.css` or a variable to `src/styles/paper.css` instead (theme preview swatches are the one exception).
 - Don't load anything from the network (fonts are bundled), to keep the "nothing leaves your browser" promise.

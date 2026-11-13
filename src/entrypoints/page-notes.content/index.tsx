@@ -5,10 +5,10 @@
 import { createRoot, type Root } from 'react-dom/client';
 import type { ContentScriptContext } from 'wxt/utils/content-script-context';
 import { createShadowRootUi } from 'wxt/utils/content-script-ui/shadow-root';
-import { PING_REPLY, type PageCommand, type PageRequest } from '../../lib/pageMessages';
+import { PING_REPLY, type PageCommand, type PageRequest } from '../../shared/messages';
 import { createBridge } from '../../pageNotes/bridge';
 import { PageNotesApp } from '../../pageNotes/PageNotesApp';
-import css from '../../pageNotes/style.css?inline';
+import css from '../../styles/pageNotes.css?inline';
 
 interface Instance {
   ctx: ContentScriptContext;

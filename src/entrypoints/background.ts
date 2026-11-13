@@ -2,11 +2,11 @@
  * Background service worker. It keeps no state between events, and every
  * listener is registered at the top level so Chrome can wake it for any of them.
  */
-import { captureLink, captureSelection } from '../lib/capture';
-import { resolveTz, todayInTz } from '../lib/dates';
-import { pageMessageListener, pinOnTab, syncRegistration } from '../lib/pageAccess';
-import { REMINDER_ALARM, runReminderCheck } from '../lib/reminders';
-import { DayFullError, notes, purgeTrash, runMigrations, settings } from '../lib/storage';
+import { captureLink, captureSelection } from '../background/capture';
+import { resolveTz, todayInTz } from '../shared/dates';
+import { pageMessageListener, pinOnTab, syncRegistration } from '../background/pageNotes';
+import { REMINDER_ALARM, runReminderCheck } from '../background/reminders';
+import { DayFullError, notes, purgeTrash, runMigrations, settings } from '../shared/storage';
 
 const PURGE_ALARM = 'purge-trash';
 const BOARD_PATH = 'newtab.html';

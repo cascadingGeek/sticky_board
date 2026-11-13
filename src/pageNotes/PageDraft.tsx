@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
-import { Pin } from '../components/Pin';
-import { NOTE_SIZE, TITLE_MAX, type NoteColor } from '../types';
+import { Pin } from '../shared/ui/Pin';
+import { NOTE_SIZE, TITLE_MAX, type NoteColor } from '../shared/types';
 
 export interface PageDraftState {
   key: number;
