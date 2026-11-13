@@ -1,12 +1,15 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
-// Unit and component tests. Separate from wxt.config.ts on purpose: tests run
-// in jsdom with an in-memory fake of the chrome.* APIs (src/test/setup.ts).
+// Tests run in jsdom against an in-memory fake of the chrome.* APIs (tests/support/fakeChrome.ts).
 export default defineConfig({
   esbuild: { jsx: 'automatic' },
+  resolve: {
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
   test: {
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: ['./tests/setup.ts'],
+    include: ['tests/**/*.test.{ts,tsx}'],
   },
 });

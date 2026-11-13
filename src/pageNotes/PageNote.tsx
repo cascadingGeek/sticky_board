@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { CalendarArrowDown, GripVertical, Minus, Plus, Trash2, X } from 'lucide-react';
-import { Pin } from '../components/Pin';
-import { tiltFor } from '../lib/board';
-import { clampHeight, clampWidth, collapsedLabel, noteHeight, noteWidth, type PagePatch } from '../lib/pageNotes';
-import { DESCRIPTION_MAX, SUBTASKS_MAX, TITLE_MAX, type Note, type Subtask } from '../types';
+import { Pin } from '../shared/ui/Pin';
+import { tiltFor } from '../shared/notes';
+import { clampHeight, clampWidth, collapsedLabel, noteHeight, noteWidth, type PagePatch } from '../shared/pageNotes';
+import { DESCRIPTION_MAX, SUBTASKS_MAX, TITLE_MAX, type Note, type Subtask } from '../shared/types';
 import { newId } from './ids';
 
 const SAVE_DELAY = 500;

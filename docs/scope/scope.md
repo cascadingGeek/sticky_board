@@ -19,7 +19,7 @@ Turn the web app into a local first Chrome extension: today's freeform board on 
 
 Done when: the production zip installs with only the "Display notifications" warning and AC-1 to AC-21 in spec 0001 pass.
 
-Spec: [0001](../specs/0001-chrome-extension-mvp/index.md) · code in `src/` (WXT extension: `src/entrypoints/`, storage in `src/lib/storage/`)
+Spec: [0001](../specs/0001-chrome-extension-mvp/index.md) · code in `src/` (WXT extension: `src/entrypoints/`, storage in `src/shared/storage/`)
 
 - [x] Design it (spec)
 - [x] Build it: /develop chrome extension first release
@@ -36,7 +36,7 @@ Pin sticky notes on any web page, so a thought stays next to the page it belongs
 
 Done when: you can pin a note on a page by right click or a shortcut, move, resize, edit and delete it, see it again on revisit and after a browser restart, and the install warning stays "Display notifications" (website access is asked for one site at a time, only after you pin a note there).
 
-Spec: [0002](../specs/0002-pin-notes-on-websites/index.md) · code in `src/pageNotes/` (on page UI), `src/entrypoints/page-notes.content/`, `src/entrypoints/site-access/`, `src/lib/pageNotes.ts`, `src/lib/pageAccess.ts`
+Spec: [0002](../specs/0002-pin-notes-on-websites/index.md) · code in `src/pageNotes/` (on page UI), `src/entrypoints/page-notes.content/`, `src/entrypoints/site-access/`, `src/shared/pageNotes.ts`, `src/background/pageNotes.ts`
 
 - [x] Design it (spec): /architect pin notes on websites
 - [x] Build it: /develop pin notes on websites
@@ -53,7 +53,7 @@ Give every surface the new realistic paper look from the "Realistic Sticky Board
 
 Done when: every board in the canvas matches in all five themes, existing users who never picked a theme stay on Dark, and AC-1 to AC-26 in spec 0003 pass.
 
-Spec: [0003](../specs/0003-realistic-notes-redesign/index.md) · code in `src/index.css`, new `src/styles/paper.css`, `src/components/`, `src/pageNotes/`
+Spec: [0003](../specs/0003-realistic-notes-redesign/index.md) · code in `src/styles/`, `src/board/components/`, `src/pageNotes/`
 
 - [x] Design it (spec): /architect realistic notes redesign
 - [x] Build it: /develop realistic notes redesign
@@ -70,7 +70,7 @@ Rescue a note pinned on a website whose page is gone (a finished Google Meet cal
 
 Done when: a note pinned in a call can be moved from the Pages drawer after the tab is closed and read and edited on today's board, the 50 notes a day limit is respected, Undo restores the page note, and AC-1 to AC-12 in spec 0004 pass.
 
-Spec: [0004](../specs/0004-move-page-note-board/index.md) · code in `src/lib/storage/`, `src/lib/pageAccess.ts`, `src/lib/pageMessages.ts`, `src/components/PagesDrawer.tsx`, `src/lib/StickyBoardContext.tsx`, `src/pageNotes/` (new `MovedMessage.tsx`)
+Spec: [0004](../specs/0004-move-page-note-board/index.md) · code in `src/shared/storage/`, `src/background/pageNotes.ts`, `src/shared/messages.ts`, `src/board/components/PagesDrawer.tsx`, `src/board/StickyBoardContext.tsx`, `src/pageNotes/MovedMessage.tsx`
 
 - [x] Design it (spec): /architect copy page note to board
 - [x] Build it: /develop move a page note to today's board

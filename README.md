@@ -53,6 +53,7 @@ To try a production build by hand, open `chrome://extensions`, turn on Developer
 
 ## Docs
 
+- [`docs/architecture.md`](docs/architecture.md): how the code is laid out, and where new code goes
 - [`docs/scope/scope.md`](docs/scope/scope.md): what's built and what's next
 - [`docs/specs/`](docs/specs/): the design of each feature
 - [`design.md`](design.md): the visual design rules
