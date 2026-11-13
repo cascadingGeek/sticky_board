@@ -6,7 +6,7 @@ import { clampHeight, clampWidth, collapsedLabel, noteHeight, noteWidth, type Pa
 import { DESCRIPTION_MAX, SUBTASKS_MAX, TITLE_MAX, type Note, type Subtask } from '../types';
 import { newId } from './ids';
 
-const SAVE_DELAY = 500; // AC-8: saved within 1 second of when you stop typing
+const SAVE_DELAY = 500;
 const DRAG_THRESHOLD = 3;
 
 type Field = 'title' | 'description' | 'subtasks';
@@ -19,7 +19,7 @@ interface PageNoteProps {
   onPatch: (fields: PagePatch) => void;
   onTrash: () => void;
   onAllow: () => void;
-  /** Move to today's board (spec 0004). */
+  /** Move to today's board. */
   onMove: () => void;
   /** True while the move waits for the background: the buttons are disabled. */
   moving: boolean;

@@ -4,9 +4,8 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
- * Keeps keyboard focus inside a dialog while it is open, puts initial focus on
- * the element marked `data-autofocus` (else the first focusable), and returns
- * focus to whatever had it before when the dialog closes.
+ * Keeps focus inside an open dialog, starting on `data-autofocus` (else the
+ * first focusable), and gives focus back when it closes.
  */
 export const useFocusTrap = (ref: RefObject<HTMLElement | null>) => {
   useEffect(() => {

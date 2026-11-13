@@ -37,9 +37,8 @@ export class ImportError extends Error {}
 const migrateFile = (file: Record<string, unknown>): Record<string, unknown> => file;
 
 /**
- * Validates the whole file first (any invalid note rejects it, so nothing is
- * half imported), then merges by id: missing locally → add; file newer →
- * replace; tie or local newer → keep local.
+ * Validates the whole file first, so nothing is half imported, then merges by
+ * id: new notes are added and the newer copy wins (local on a tie).
  */
 export const importBackup = async (file: File, restoreSettings: boolean): Promise<ImportResult> => {
   if (file.size > MAX_BYTES) throw new ImportError('That file is larger than 50 MB.');
@@ -74,7 +73,7 @@ export const importBackup = async (file: File, restoreSettings: boolean): Promis
     // Older files may lack a position or z: give them the first free cell.
     let note: Note;
     if (p.page) {
-      // Page notes keep their saved page spot; never moved to a board spot (AC-13).
+      // Page notes keep their saved page spot; never moved to a board spot.
       note = { ...p, positionX: p.positionX ?? 24, positionY: p.positionY ?? 24, z: p.z ?? nextPageZ(working, p.page.url) };
     } else if (p.positionX === undefined || p.positionY === undefined || p.z === undefined) {
       const board = boardNotes(working);

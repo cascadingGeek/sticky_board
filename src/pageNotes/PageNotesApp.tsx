@@ -11,12 +11,12 @@ import { PageDraft, type PageDraftState } from './PageDraft';
 import { PageNote } from './PageNote';
 
 export const LIMIT_MESSAGE = 'This page already has 50 notes.';
-export const MOVED_MESSAGE = "Moved to today's board";
-export const GONE_MESSAGE = 'This note was already moved or deleted.';
-export const MOVE_FAILED_MESSAGE = "Couldn't move the note. Try again.";
+const MOVED_MESSAGE = "Moved to today's board";
+const GONE_MESSAGE = 'This note was already moved or deleted.';
+const MOVE_FAILED_MESSAGE = "Couldn't move the note. Try again.";
 
-/** How long note text may stay hidden while the handwriting font loads (spec 0003, AC-24). */
-export const FONT_WAIT_MS = 300;
+/** How long note text may stay hidden while the handwriting font loads. */
+const FONT_WAIT_MS = 300;
 
 export type Send = <R>(msg: PageRequest) => Promise<R>;
 
@@ -28,7 +28,7 @@ const docSize = () => ({
 /** Every page note for the current address, plus a draft when you pin a new one. */
 export function PageNotesApp({ bridge, send }: { bridge: Bridge; send: Send }) {
   const [url, setUrl] = useState(() => normalizePageUrl(location.href));
-  // The address right now, for replies that arrive after the page moved on (spec 0004).
+  // The current address, for replies that arrive after the page moved on.
   const urlRef = useRef(url);
   const [all, setAll] = useState<Map<string, Note>>(new Map());
   const [loaded, setLoaded] = useState(false);
@@ -36,7 +36,7 @@ export function PageNotesApp({ bridge, send }: { bridge: Bridge; send: Send }) {
   const [draft, setDraft] = useState<PageDraftState | null>(null);
   const [size, setSize] = useState(docSize);
   const draftKey = useRef(0);
-  // Moving to today's board (spec 0004): notes waiting on a reply, their errors, and the messages left behind.
+  // Moves waiting on a reply, their errors, and the messages left behind.
   const [moving, setMoving] = useState<Map<string, string | null>>(new Map());
   const [notices, setNotices] = useState<Notice[]>([]);
   const noticeKey = useRef(0);
@@ -60,7 +60,7 @@ export function PageNotesApp({ bridge, send }: { bridge: Bridge; send: Send }) {
       .catch(() => undefined);
   }, [load, send]);
 
-  // "Handwriting on notes" from Settings, kept current (spec 0003, AC-23).
+  // "Handwriting on notes" from Settings, kept current.
   const [plain, setPlain] = useState(false);
   useEffect(() => {
     let gone = false;
@@ -89,7 +89,7 @@ export function PageNotesApp({ bridge, send }: { bridge: Bridge; send: Send }) {
     };
   }, []);
 
-  // Live updates from the board and other tabs (AC-8).
+  // Live updates from the board and other tabs.
   useEffect(
     () =>
       noteStore.subscribe(({ upserted, removed }) =>
@@ -137,7 +137,7 @@ export function PageNotesApp({ bridge, send }: { bridge: Bridge; send: Send }) {
     [bridge, onPage, allList],
   );
 
-  // A draft asked for before the notes loaded waits for them (the AC-3 spot needs them).
+  // A draft asked for before the notes loaded waits for them.
   const waiting = useRef<'menu' | 'shortcut' | null>(null);
   const startRef = useRef(startDraft);
   useLayoutEffect(() => {
@@ -163,7 +163,7 @@ export function PageNotesApp({ bridge, send }: { bridge: Bridge; send: Send }) {
         } else if (e.type === 'access') {
           setAllowed(e.allowed);
         } else if (e.type === 'location') {
-          // AC-14: a new address swaps the notes; only a #part change keeps them.
+          // A new address swaps the notes; only a #part change keeps them.
           // Use the address from the event: it fires before location.href changes.
           const next = normalizePageUrl(e.href);
           urlRef.current = next;
@@ -236,7 +236,7 @@ export function PageNotesApp({ bridge, send }: { bridge: Bridge; send: Send }) {
     setNotices(list => [...list, { ...n, key }]);
   };
 
-  /** Not optimistic: the note stays, buttons disabled, until the background answers (spec 0004). */
+  /** Not optimistic: the note stays, buttons disabled, until the background answers. */
   const moveToBoard = async (n: Note, x: number, y: number) => {
     if (moving.get(n.id) === null) return;
     setMove(n.id, null);

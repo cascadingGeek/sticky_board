@@ -1,11 +1,6 @@
 /*
- * Sticky Board paper (spec 0003): the one paper look shared by board notes,
- * the editor sheet and notes on websites. Plain CSS only (no Tailwind
- * @theme, @apply or @layer), because the content script has no Tailwind.
- *
- * The Light values live on `:root, .sb-root`. The [data-theme] blocks in
- * src/index.css override the paper shade and shadow depth on the board only;
- * paper hue, ink and pin colour never change with the theme.
+ * The paper look shared by board notes, the editor and notes on websites.
+ * Plain CSS only, because the content script has no Tailwind.
  */
 :root,
 .sb-root {
@@ -60,9 +55,8 @@
 }
 
 /*
- * The note shell: holds the two blurred curl strips under the sheet. Give it
- * position (relative or absolute) and size; the sheet (.paper) fills it. Its
- * own stacking context (`isolation`) keeps the curls under the sheet.
+ * The note shell: holds the blurred curl strips under the sheet (.paper).
+ * Give it position and size; `isolation` keeps the curls under the sheet.
  */
 .paper-note {
   isolation: isolate;
@@ -188,7 +182,7 @@
 .pin-green { --pin-c: #22c62e; --pin-l: #8cf08f; --pin-d: #0f7a18; }
 .pin-blue { --pin-c: #1e6fe0; --pin-l: #7fb2ff; --pin-d: #0f449a; }
 
-/* Handwriting on notes (AC-7). `.no-handwriting` (on <html> for the board, on .sb-root on websites) switches to Inter. */
+/* Handwriting on notes. `.no-handwriting` (on <html> for the board, on .sb-root on websites) switches to Inter. */
 .note-title {
   margin: 0;
   font-family: var(--hand-font);
@@ -263,11 +257,7 @@ a.note-chip {
   border-radius: 3px;
 }
 
-/*
- * The note editor sheet (spec 0003, AC-14): the note's own paper at 580 px,
- * a 48 px glue band and a deeper shadow. Controls on the paper use fixed
- * paper colours (the paper is light in every theme).
- */
+/* The note editor sheet: the note's own paper at 580 px, with fixed paper colors on it. */
 :root {
   --paper-danger: #8f1d12;
   --paper-btn: #1f1f22;

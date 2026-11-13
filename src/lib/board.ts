@@ -1,12 +1,8 @@
 import { NOTE_COLORS, NOTE_GAP, NOTE_SIZE, type Note, type NoteColor } from '../types';
 
-/** Notes that are not in Trash. */
 export const isActive = (n: Note) => !n.deletedAt;
 
-/**
- * The "latest note" for the random color rule: greatest createdAt among notes
- * that are not carry over copies, ties broken by the greater id.
- */
+/** The latest note for the color rule: newest createdAt, skipping carried copies, ties by id. */
 export const latestNoteColor = (notes: Note[]): NoteColor | undefined => {
   let latest: Note | undefined;
   for (const n of notes) {
@@ -39,9 +35,8 @@ export interface Viewport {
 const MIN_WIDTH = 268;
 
 /**
- * First free spot: 220 px cells with 24 px gaps, left to right then top to
- * bottom, starting 24 px inside the visible top left. Falls back to a cascade
- * from the most recently created note on this day (up to 8 steps), then wraps.
+ * First free 220 px cell (24 px gaps) from the visible top left. When none is
+ * free, cascades from the newest note on this day.
  */
 export const firstFreeSpot = (dayNotes: Note[], viewport: Viewport): { x: number; y: number } => {
   const width = Math.max(MIN_WIDTH, viewport.width);
@@ -72,7 +67,7 @@ export const firstFreeSpot = (dayNotes: Note[], viewport: Viewport): { x: number
   return base;
 };
 
-/** A stable non negative integer hash of a string (the loop tilt has always used). */
+/** A stable non negative hash of a string. */
 export const hashOf = (s: string): number => {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
@@ -82,7 +77,7 @@ export const hashOf = (s: string): number => {
 /** Stable tilt between -2.5 and 2.5 degrees, derived from the note id. */
 export const tiltFor = (id: string): number => (hashOf(id) % 501) / 100 - 2.5;
 
-export const PIN_COLORS = ['red', 'yellow', 'green', 'blue'] as const;
+const PIN_COLORS = ['red', 'yellow', 'green', 'blue'] as const;
 export type PinColor = (typeof PIN_COLORS)[number];
 
 /** Stable pushpin colour from the note id, salted so it doesn't follow the tilt. */

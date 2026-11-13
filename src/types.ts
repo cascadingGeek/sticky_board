@@ -1,8 +1,4 @@
-/**
- * Sticky Board domain types (spec 0001, cross child contract).
- * Notes live in chrome.storage.local (one key per note), meta in
- * chrome.storage.local under `meta`, settings in chrome.storage.sync.
- */
+/** Domain types. Notes and meta live in chrome.storage.local, settings in chrome.storage.sync. */
 
 export const NOTE_COLORS = ['yellow', 'blue', 'green', 'pink', 'purple', 'orange', 'mint', 'cream'] as const;
 export type NoteColor = (typeof NOTE_COLORS)[number];
@@ -18,7 +14,7 @@ export interface NoteSource {
   title: string;
 }
 
-/** The page a page note is pinned to (spec 0002). `url` has no `#part`. */
+/** The page a page note is pinned to. `url` has no `#part`. */
 export interface PageRef {
   url: string;
   title: string;
@@ -42,7 +38,7 @@ export interface Note {
   carriedFromId?: string;
   carriedToDate?: string;
   deletedAt?: string; // set means it is in Trash
-  page?: PageRef; // present means a page note (spec 0002)
+  page?: PageRef; // present means a page note
   width?: number; // page notes only, 160 to 480
   height?: number; // page notes only, 120 to 480
   collapsed?: boolean; // page notes only
@@ -54,7 +50,7 @@ export interface Meta {
   schemaVersion: number;
   onboardedAt?: string;
   lastCarryOverPromptDate?: string;
-  themeDefaultCheckedAt?: string; // when the one time theme check ran (spec 0003, AC-2)
+  themeDefaultCheckedAt?: string; // when the one time theme check ran
 }
 
 export const THEMES = ['dark', 'light', 'midnight', 'cork', 'system'] as const;
@@ -89,7 +85,7 @@ export const TRASH_DAYS = 30;
 export const DAY_NOTE_LIMIT = 50;
 export const DAY_FULL_MESSAGE = 'This day already has 50 notes, the most a day can hold. Finish or remove one to add another.';
 
-// Page notes (spec 0002).
+// Page notes.
 export const PAGE_NOTE_LIMIT = 50;
 export const PAGE_URL_MAX = 2048;
 export const PAGE_NOTE_MIN_W = 160;

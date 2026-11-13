@@ -17,9 +17,8 @@ const isIso = (v: unknown): v is string => typeof v === 'string' && !Number.isNa
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
 /**
- * Checks one stored or imported object against the Note shape and returns a
- * clean Note with only known fields, or null when it is invalid. Missing
- * positions and z are allowed here (older files); the caller fills them.
+ * A clean Note with only known fields, or null when invalid. Position and z
+ * may be missing (older files); the caller fills them.
  */
 export const parseNote = (raw: unknown): (Omit<Note, 'positionX' | 'positionY' | 'z'> & Partial<Pick<Note, 'positionX' | 'positionY' | 'z'>>) | null => {
   if (!raw || typeof raw !== 'object') return null;
@@ -58,7 +57,7 @@ export const parseNote = (raw: unknown): (Omit<Note, 'positionX' | 'positionY' |
     source = { url: s.url, title: typeof s.title === 'string' ? s.title : '' };
   }
 
-  // Page notes (spec 0002): an http(s) address without #part, size and collapsed state.
+  // Page notes: an http(s) address without #part, size and collapsed state.
   let page: Note['page'];
   if (r.page !== undefined) {
     const pg = r.page as Record<string, unknown> | null;

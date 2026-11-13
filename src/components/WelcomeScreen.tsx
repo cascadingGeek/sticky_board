@@ -21,7 +21,7 @@ const SAMPLES: { title: string; text: string; color: NoteColor; pin: PinColor; l
   { title: 'Call Ada', text: formatTime('18:00'), color: 'pink', pin: 'blue', left: 150, top: 290, tilt: 1.5 },
 ];
 
-/** First run: pick a theme with a live preview, then start. Shown once. Light is the default (spec 0003, AC-1). */
+/** First run: pick a theme with a live preview, then start. Shown once. Light is the default. */
 export function WelcomeScreen() {
   const { updateSettings, setThemeOverride, patchMeta } = useStickyBoard();
   const [choice, setChoice] = useState<ThemeSetting>('light');

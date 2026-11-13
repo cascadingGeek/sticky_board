@@ -2,11 +2,8 @@
 @import "./styles/paper.css";
 
 /*
- * Sticky Board design tokens (spec 0003). Light ("Wall") is the base: with no
- * data-theme, these values apply. [data-theme] on <html> switches to Dark,
- * Midnight or Cork (set before first paint by public/theme-boot.js).
- * Use the tokens (bg-panel, text-ink, border-line, bg-accent, ...), never raw
- * colors, so every theme keeps working. Paper lives in src/styles/paper.css.
+ * Design tokens. Light is the base; [data-theme] on <html> switches to Dark,
+ * Midnight or Cork. Use the tokens, never raw colors, so every theme works.
  */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -208,7 +205,7 @@
   --board-backing: rgba(255, 248, 238, 0.78);
 }
 
-/* Paper on the board (AC-21): darker paper colours on Dark and Midnight, deeper shadows on Dark, Midnight and Cork. */
+/* Paper on the board: darker paper colours on Dark and Midnight, deeper shadows on Dark, Midnight and Cork. */
 :root[data-theme="dark"],
 :root[data-theme="midnight"] {
   --paper-glue: rgba(0, 0, 0, 0.05);
@@ -256,7 +253,7 @@
   --note-curl-side: rgba(60, 30, 10, 0.22);
 }
 
-/* Caveat Brush, bundled, never the fallback first (AC-7). */
+/* Caveat Brush, bundled, never the fallback first. */
 @font-face {
   font-family: "Caveat Brush";
   font-style: normal;
@@ -292,7 +289,7 @@ body {
     outline: 2px solid var(--color-accent-soft);
     outline-offset: 2px;
   }
-  /* Every heading uses Inter Bold (spec 0003, AC-19); utilities can still override. */
+  /* Every heading uses Inter Bold; utilities can still override. */
   h1,
   h2,
   h3 {
@@ -307,7 +304,7 @@ body {
   background-attachment: fixed;
 }
 
-/* Text placed straight on the board: a soft backing on Cork keeps 4.5:1 (AC-22). */
+/* Text placed straight on the board: a soft backing on Cork keeps 4.5:1. */
 .board-backing {
   background: var(--board-backing);
   border-radius: 12px;

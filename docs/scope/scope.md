@@ -45,7 +45,7 @@ Spec: [0002](../specs/0002-pin-notes-on-websites/index.md) · code in `src/pageN
   - [x] Shortcut, 50 note limit, blocked pages (AC-3, AC-17, AC-18, AC-19)
   - [x] Full note and board side: drag, resize, edit, collapse, Trash, live updates, address changes, Pages drawer, search, Settings sites list (AC-7 to AC-12, AC-14, AC-16)
 - [ ] Verify it: /check verify pin notes on websites
-- [ ] Test it: /test pin notes on websites
+- [x] Test it: /test pin notes on websites
 
 ## Realistic notes redesign · in-progress
 
@@ -62,7 +62,7 @@ Spec: [0003](../specs/0003-realistic-notes-redesign/index.md) · code in `src/in
   - [x] Drawers, search and themes: 440 px drawers, search, Dark, Midnight, Cork, System, contrast (AC-15, AC-16, AC-20 to AC-22)
   - [x] Notes on websites and cleanup: paper and bundled font on websites, Allow window, package cleanup, design.md, tests (AC-23 to AC-26)
 - [ ] Verify it: /check verify realistic notes redesign
-- [ ] Test it: /test realistic notes redesign
+- [x] Test it: /test realistic notes redesign
 
 ## Move a page note to today's board · done
 

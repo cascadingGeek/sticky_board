@@ -1,7 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'wxt';
 
-// Sticky Board: a local first Chrome extension (spec 0001, child 0001).
 export default defineConfig({
   srcDir: 'src',
   modules: ['@wxt-dev/module-react'],
@@ -13,8 +12,8 @@ export default defineConfig({
     description: 'Your day as sticky notes on every new tab. Drag notes anywhere, set reminders, and keep everything in your browser.',
     minimum_chrome_version: '116',
     permissions: ['storage', 'unlimitedStorage', 'contextMenus', 'activeTab', 'alarms', 'notifications', 'scripting'],
-    // Spec 0002: no host_permissions at install. Site access is asked for one site at a time.
-    // `*://*/*` (http and https only): Chrome rejects a `*://site/*` request unless the manifest declares the `*` scheme.
+    // No host permissions at install: site access is asked for one site at a time.
+    // Chrome rejects a `*://site/*` request unless the manifest declares the `*` scheme.
     optional_host_permissions: ['*://*/*'],
     action: {
       default_title: 'Open Sticky Board',

@@ -64,7 +64,7 @@ export function SearchBox() {
 
   const matches = useMemo(() => {
     if (debounced.length < 2) return [];
-    // Board notes from every day plus page notes (spec 0002, AC-12).
+    // Board notes from every day plus page notes.
     return allNotes
       .filter(n => isActive(n) && !n.carriedToDate)
       .filter(n =>

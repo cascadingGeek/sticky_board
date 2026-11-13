@@ -1,62 +1,58 @@
 # Sticky Board
 
-A Chrome extension that puts today's sticky notes on every new tab. Drag notes anywhere, carry unfinished ones into tomorrow, get reminders, and send text or links to your board from any website. Everything stays in your browser: no account, no server, no tracking.
+Sticky Board is a Chrome extension that turns every new tab into a board of today's sticky notes. You can also pin notes on any website, so a thought stays next to the page it belongs to.
+
+Everything stays in your browser. There's no account, no server and no tracking. Only your settings follow you to other computers through Chrome sync.
+
+## How it works
+
+- **Open a new tab** and you see today's board: paper notes pinned to a wall, which you can drag anywhere.
+- **Add a note** with `N` or the New note button. Type a title and press Enter. Open a note to add details, a checklist, a due time or a reminder. It saves as you type.
+- **Each morning**, unfinished notes from your last active day are offered as copies, so nothing slips.
+- **On a website**, right click and choose **Pin a note here**, or press `Alt+Shift+N`. Chrome asks for access to that one site only, the first time you pin there. The note comes back whenever you revisit the page.
+- **Move a page note to today's board** when it becomes a task for today. Undo is there for a few seconds if you change your mind.
 
 ## Features
 
-- **New tab board**: today's notes as same size (220 × 220) sticky notes you drag anywhere. Long notes scroll inside themselves. Colors are picked for you.
-- **Quick notes**: press `N` or `+`, type a title, press Enter. Double click a note for details, a checklist, a day, and a due time.
-- **Carry over**: each morning, unfinished notes from your last active day are offered as copies.
-- **Search** across every day (`⌘K` / `Ctrl+K` also lists commands).
-- **Calendar, Trash, Settings** in drawers from the top bar. Trash keeps notes for 30 days.
-- **Themes**: Dark (default), Light, Midnight, Cork, or follow your system.
-- **Right click capture**: "Send selection to Sticky Board" and "Save link to Sticky Board".
+- **Daily board**: same size notes you drag anywhere. Colors are picked for you, and a day holds up to 50 notes.
+- **Notes on websites**: pin, move, resize, collapse and edit notes on any page, up to 50 per page. Every site's notes are listed in the Pages drawer.
+- **Right click capture**: **Send selection to Sticky Board** and **Save link to Sticky Board** add a note to today's board.
 - **Reminders**: turn on Remind for a note with a due time to get a Chrome notification.
-- **Backups**: download a JSON backup and import it again (merges, newest wins).
-- **Shortcuts**: `N` new note, `←`/`→` change day, `T` today, `Alt+Shift+S` open the board from anywhere.
+- **Search** across every day and every website note. `⌘K` / `Ctrl+K` also lists commands.
+- **Calendar, Pages, Trash and Settings** open as drawers from the top bar. Trash keeps notes for 30 days.
+- **Themes**: Light (default), Dark, Midnight, Cork, or follow your system. Handwriting on notes can be turned off.
+- **Backups**: download a JSON backup and import it again. Importing merges, and the newer copy of a note wins.
 
-## Development
+### Keyboard shortcuts
+
+| Key | Action |
+|---|---|
+| `N` | New note |
+| `←` / `→` | Previous or next day |
+| `T` | Back to today |
+| `⌘K` / `Ctrl+K` | Search and commands |
+| `Alt+Shift+S` | Open the board from anywhere |
+| `Alt+Shift+N` | Pin a note on the current page |
+
+You can change the two `Alt+Shift` shortcuts at `chrome://extensions/shortcuts`.
+
+## Getting started
+
+You need Node.js 20 or newer.
 
 ```bash
 npm install
-npm run dev     # WXT dev mode: opens Chrome with the extension loaded and hot reload
-npm run build   # typecheck + production build in .output/chrome-mv3
+npm run dev     # opens Chrome with the extension loaded and hot reload
+npm test        # runs the test suite
+npm run lint    # ESLint and the type check
+npm run build   # production build in .output/chrome-mv3
 npm run zip     # store ready zip in .output/
-npm run lint    # ESLint + typecheck
 ```
 
-To try a production build by hand: open `chrome://extensions`, turn on Developer mode, choose **Load unpacked**, and pick `.output/chrome-mv3`.
+To try a production build by hand, open `chrome://extensions`, turn on Developer mode, choose **Load unpacked**, and pick `.output/chrome-mv3`.
 
-## How it is built
+## Docs
 
-| Layer | Choice |
-|---|---|
-| Extension | Manifest V3, built with [WXT](https://wxt.dev) |
-| UI | React 19, TypeScript (strict), Tailwind CSS v4, lucide icons, fonts bundled with `@fontsource` |
-| Data | `chrome.storage.local` (one key per note, `note:<id>`), `chrome.storage.sync` for settings |
-| Background | One service worker: context menus, a single reminder alarm, daily trash purge |
-
-```
-src/
-├── entrypoints/
-│   ├── newtab/        # the new tab page (index.html + main.tsx)
-│   └── background.ts  # service worker
-├── lib/
-│   ├── storage/       # ⭐ the only code that touches chrome.storage
-│   ├── StickyBoardContext.tsx  # app state, optimistic saves, live sync across tabs
-│   ├── board.ts       # color rule, first free spot, stacking, links
-│   ├── dates.ts       # timezone safe day helpers
-│   ├── reminders.ts   # the reminder check (background)
-│   └── capture.ts     # right click capture (background)
-├── components/        # TopBar, Board, NoteCard, drawers, editor, search, welcome
-└── index.css          # theme tokens ([data-theme] on <html>)
-public/                # icons + theme-boot.js (sets the theme before first paint)
-```
-
-Rules worth knowing:
-
-1. **Only `src/lib/storage/` calls `chrome.storage`.** Change notes with `notes.patch` (it merges fields into the latest stored copy), create them with `createNote` (it picks the color and stacking order inside a shared lock).
-2. **Days are `YYYY-MM-DD` strings in the resolved timezone.** Use `todayInTz(resolveTz(settings.timezone))`, never `toISOString()`.
-3. **Use the theme tokens** (`bg-panel`, `text-ink`, `border-line`, `bg-accent`, …), not raw colors, so every theme works.
-
-The full design lives in [`docs/specs/0001-chrome-extension-mvp/`](docs/specs/0001-chrome-extension-mvp/index.md).
+- [`docs/scope/scope.md`](docs/scope/scope.md): what's built and what's next
+- [`docs/specs/`](docs/specs/): the design of each feature
+- [`design.md`](design.md): the visual design rules

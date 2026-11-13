@@ -7,10 +7,7 @@ import { SiteBadge } from './SiteBadge';
 
 const sectionTitle = 'm-0 text-xs font-semibold tracking-[0.06em] text-ink-faint uppercase';
 
-/**
- * Settings, "Sites with page notes" (spec 0002, AC-16): each site Sticky Board
- * may show notes on by itself, with its note count and a Remove button.
- */
+/** Settings, "Sites with page notes": each allowed site with its note count and a Remove button. */
 export function SitesSection({ notes }: { notes: Note[] }) {
   const { access, error, setError, refresh } = useSiteAccess();
 

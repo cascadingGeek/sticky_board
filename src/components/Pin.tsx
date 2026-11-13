@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import { pinFor, type PinColor } from '../lib/board';
 
 interface PinProps {
-  /** The note this pin holds: its colour comes from the id, so it is the same everywhere (spec 0003, AC-5). */
+  /** The note this pin holds: its colour comes from the id, so it is the same everywhere. */
   noteId?: string;
   /** A fixed colour, for decoration with no note behind it. */
   color?: PinColor;

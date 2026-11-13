@@ -1,7 +1,4 @@
-/**
- * The link between the content script entry (messages, address changes, the
- * last right click) and the React app on the page.
- */
+/** Connects the content script entry (messages, address changes, right clicks) to the React app. */
 export type BridgeEvent =
   | { type: 'new-draft'; via: 'menu' | 'shortcut' }
   | { type: 'access'; allowed: boolean }

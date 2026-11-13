@@ -17,5 +17,5 @@ export const THEME_SWATCH: Record<ThemeSetting, string> = {
   system: 'bg-[linear-gradient(135deg,#1a1a1d_50%,#edebe6_50%)] border border-black/10',
 };
 
-/** The order themes are offered in (Light first, the default since spec 0003). */
+/** The order themes are offered in. */
 export const THEME_ORDER: ThemeSetting[] = ['light', 'dark', 'cork', 'midnight', 'system'];

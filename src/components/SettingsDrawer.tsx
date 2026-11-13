@@ -8,7 +8,7 @@ import type { ThemeSetting } from '../types';
 import { Drawer } from './Drawer';
 import { SitesSection } from './SitesSection';
 
-/** Settings order from the canvas: Light, Dark, Midnight, then Cork, System. */
+/** Theme order in Settings. */
 const SETTINGS_THEMES: ThemeSetting[] = ['light', 'dark', 'midnight', 'cork', 'system'];
 
 const sectionTitle = 'm-0 text-xs font-semibold tracking-[0.06em] text-ink-faint uppercase';

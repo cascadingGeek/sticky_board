@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 
-/** How long the message after a move (and its Undo) stays (spec 0004, AC-5). */
+/** How long the message after a move stays. */
 export const MOVED_MESSAGE_MS = 6000;
 
 export interface Notice {
   key: number;
   x: number;
   y: number;
-  /** Set for a move that can be undone; absent for a plain notice (AC-7). */
+  /** Set for a move that can be undone; absent for a plain notice. */
   undo?: { pageId: string; boardId: string };
   text: string;
 }
@@ -19,7 +19,7 @@ interface MovedMessageProps {
   onDone: () => void;
 }
 
-/** "Moved to today's board" with Undo, where the note was (spec 0004). */
+/** "Moved to today's board" with Undo, where the note was. */
 export function MovedMessage({ notice, onUndo, onDone }: MovedMessageProps) {
   const [text, setText] = useState(notice.text);
   const [undoing, setUndoing] = useState(false);

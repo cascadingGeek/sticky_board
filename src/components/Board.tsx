@@ -127,7 +127,7 @@ export function Board({ inert }: { inert: boolean }) {
 
 const kbd = 'rounded-md bg-kbd px-[7px] py-0.5 font-sans font-semibold text-ink';
 
-/** The empty day (spec 0003, AC-12): three loose pins, the hint and a button. */
+/** The empty day: three loose pins, the hint and a button. */
 function EmptyDay({ onNew }: { onNew: () => void }) {
   return (
     <div className="absolute top-[min(30vh,260px)] left-1/2 flex w-[min(440px,calc(100%-32px))] -translate-x-1/2 flex-col items-center gap-[18px] text-center">

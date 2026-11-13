@@ -1,7 +1,4 @@
-/**
- * Date helpers. Board dates are plain YYYY-MM-DD strings in the resolved
- * timezone. Never use toISOString() for day keys: it returns the UTC date.
- */
+/** Board days are YYYY-MM-DD in the resolved timezone. Never use toISOString(): it gives the UTC date. */
 
 /** Splits YYYY-MM-DD into numbers (callers validate the format first where it matters). */
 const ymd = (s: string): [number, number, number] => {
@@ -58,9 +55,6 @@ export const parseDateStr = (dateStr: string): Date => {
 export const weekdayName = (dateStr: string): string =>
   parseDateStr(dateStr).toLocaleDateString(undefined, { weekday: 'long' });
 
-export const longDate = (dateStr: string): string =>
-  parseDateStr(dateStr).toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
-
 export const shortDay = (dateStr: string): string =>
   parseDateStr(dateStr).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
@@ -82,9 +76,8 @@ const tzOffsetMs = (epoch: number, timeZone: string): number => {
 };
 
 /**
- * Epoch ms for a wall clock date and time in a timezone. A time skipped by a
- * daylight saving change moves forward to the next valid minute; a repeated
- * time uses its first occurrence.
+ * Epoch ms for a wall clock time in a timezone. A time skipped by daylight
+ * saving moves to the next valid minute; a repeated one uses the first.
  */
 export const zonedToEpoch = (dateStr: string, time: string, timeZone: string): number => {
   const [y, m, d] = ymd(dateStr);
@@ -131,14 +124,14 @@ export const resetTimeFormat = () => {
 };
 
 /** "Today", "Yesterday", "Tomorrow", otherwise the weekday name ("Friday"). */
-export const dayRelation = (dateStr: string, today: string): string => {
+const dayRelation = (dateStr: string, today: string): string => {
   if (dateStr === today) return 'Today';
   if (dateStr === offsetDateStr(today, -1)) return 'Yesterday';
   if (dateStr === offsetDateStr(today, 1)) return 'Tomorrow';
   return weekdayName(dateStr);
 };
 
-/** "Today · 3 notes": the day relation, then the count of that day's board notes (spec 0003, AC-11). */
+/** "Today · 3 notes": the day relation, then the count of that day's board notes. */
 export const daySubtitle = (dateStr: string, today: string, count: number): string => {
   const relation = dayRelation(dateStr, today);
   if (!count) return relation;
