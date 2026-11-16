@@ -2,7 +2,7 @@
 
 ## Summary
 
-The React app is rebuilt as a Chrome extension using WXT, a tool built on Vite that writes the extension manifest (the file telling Chrome what the extension is and may do) from the project's folders. There are two entrypoints: the new tab page, and a background worker for menus, alarms and notifications. The extension asks only for permissions that show at most one install warning, "Display notifications".
+The React app is rebuilt as a Chrome extension using WXT, a tool built on Vite that writes the extension manifest (the file telling Chrome what the extension is and may do) from the project's folders. There are two entrypoints: the new tab page, and a background worker for menus, alarms and notifications. In the production build, the install prompt shows exactly two install warnings, "Replace the page that you see when opening a new tab" and "Display notifications". The first comes from the new tab override, which Chrome warns about for every extension that replaces the new tab page; no permission adds anything else.
 
 ## Decision
 
@@ -41,7 +41,7 @@ No popup, no side panel, no content scripts in this release.
 | `alarms` | Reminders and the daily trash purge | none |
 | `notifications` | Reminder notifications | "Display notifications" |
 
-This list applies to the production build (`wxt build` / `wxt zip`); WXT's dev server adds permissions for hot reload, which is expected. No host permissions and no `tabs` permission. Finding an open board tab uses `chrome.runtime.getContexts` (Chrome 116 or later), which lists the extension's own pages without extra permission. Set `minimum_chrome_version` to `"116"`.
+This list applies to the production build (`wxt build` / `wxt zip`); WXT's dev server adds permissions for hot reload, which is expected. Spec 0002 later adds `scripting` (no warning) and `optional_host_permissions` (asked for at run time, no install warning). The new tab override (`chrome_url_overrides.newtab`) is not a permission, but Chrome reports it as an install warning, "Replace the page that you see when opening a new tab", so the prompt shows two warnings in total. No host permissions and no `tabs` permission. Finding an open board tab uses `chrome.runtime.getContexts` (Chrome 116 or later), which lists the extension's own pages without extra permission. Set `minimum_chrome_version` to `"116"`.
 
 **Manifest identity** (set in `wxt.config.ts` `manifest`): `name` "Sticky Board", a one line `description`, `icons` at 16, 32, 48 and 128 px (from `public/icon/`), and `action: { default_title: "Open Sticky Board" }` with no popup. The `action` key must be declared explicitly, because WXT emits it only for a popup entrypoint, and both the icon click and the shortcut need it.
 

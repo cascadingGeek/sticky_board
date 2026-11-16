@@ -5,7 +5,7 @@
 
 ## Summary
 
-You can pin a sticky note on any normal web page (right click or Alt+Shift+N), and it comes back at the same spot whenever you return to that exact page. Sticky Board still installs with only the "Display notifications" warning; after your first pin on a site, the note offers an Allow button that asks Chrome for access to that one site. Page notes are ordinary notes with a `page` field, so search, Trash and backups cover them, and a new Pages drawer on the board lists them by site. The note UI lives inside a Shadow DOM (a sealed box in the page) so a site's styles and shortcuts can't break it.
+You can pin a sticky note on any normal web page (right click or Alt+Shift+N), and it comes back at the same spot whenever you return to that exact page. Sticky Board still installs with only its two existing warnings (the new tab override and "Display notifications"); after your first pin on a site, the note offers an Allow button that asks Chrome for access to that one site. Page notes are ordinary notes with a `page` field, so search, Trash and backups cover them, and a new Pages drawer on the board lists them by site. The note UI lives inside a Shadow DOM (a sealed box in the page) so a site's styles and shortcuts can't break it.
 
 ## Requirements
 
@@ -16,7 +16,7 @@ You can pin a sticky note on any normal web page (right click or Alt+Shift+N), a
 - As a board user, I want to find all my page notes in one place so that I don't forget them.
 
 **Acceptance criteria**:
-- **AC-1**: Installing the production zip still shows only "Display notifications". The manifest has no `host_permissions`; website access is only in `optional_host_permissions` and asked for at run time.
+- **AC-1**: Installing the production zip still shows exactly two install warnings, "Replace the page that you see when opening a new tab" and "Display notifications", the same as spec 0001 AC-21; page notes add none. The manifest has no `host_permissions`; website access is only in `optional_host_permissions` and asked for at run time.
 - **AC-2**: On an `http` or `https` page, right click, "Pin a note here" places a new blank note with the title focused: at the spot you right clicked on a site you've allowed, and at the AC-3 spot otherwise. Typing a title and pressing Enter or clicking away saves it to that page. A new note left with an empty title is discarded.
 - **AC-3**: Pressing Alt+Shift+N on an `http` or `https` page places a new blank note 24 px in from the top left of the visible area, moved down and right 24 px for each active note (open or collapsed) whose saved spot is within 12 px of that spot.
 - **AC-4**: After your first pin on a site you haven't allowed, the note shows "Show this note when you come back?" with an **Allow** button. Allow opens a small Sticky Board window whose button asks Chrome for access to that site only (`*://<host>/*`). If you allow it, the note shows again at the same spot, size, color and collapsed state when you reload, revisit, or come back after restarting Chrome.
@@ -130,7 +130,7 @@ Sender checks for every content script message: `sender.id === chrome.runtime.id
 - Only the extension's own content scripts can message the background (no `externally_connectable`), and the sender checks above tie every write to the tab's real address.
 - Incognito is not supported; the extension stays off there unless the user turns it on, and nothing is tested there.
 
-**Configuration required**: none (no keys or services). Manifest changes in `wxt.config.ts`: add `scripting` to `permissions` (no install warning); add `optional_host_permissions: ['http://*/*', 'https://*/*']`; add command `pin-note` with `suggested_key` `Alt+Shift+N`; add the `site-access` page entrypoint.
+**Configuration required**: none (no keys or services). Manifest changes in `wxt.config.ts`: add `scripting` to `permissions` (no install warning); add `optional_host_permissions: ['*://*/*']` (the `*` scheme means http and https, not file or other schemes; Chrome rejects a `*://<host>/*` request unless the manifest declares that same scheme); add command `pin-note` with `suggested_key` `Alt+Shift+N`; add the `site-access` page entrypoint.
 
 **Critical test scenarios**:
 - Happy path: right click "Pin a note here", type a title, click Allow, accept in the window, reload, restart Chrome, and the note is at the same spot. Verifies **AC-2**, **AC-4**.
@@ -138,7 +138,7 @@ Sender checks for every content script message: `sender.id === chrome.runtime.id
 - Failure case: the board and a page edit the same note at the same time, and no field is lost. Verifies **AC-8**.
 - Failure case: reload the extension with notes on an open page, and they disappear, then come back with the shortcut. Verifies **AC-20**.
 - Failure case: a single page app address change swaps the notes without a reload. Verifies **AC-14**.
-- Permission: the production zip installs with only "Display notifications", and a site never allowed gets no registered content script. Verifies **AC-1**, **AC-16**.
+- Permission: the production zip installs with only the two spec 0001 warnings (new tab override and "Display notifications"), and a site never allowed gets no registered content script. Verifies **AC-1**, **AC-16**.
 - Isolation: a test page with hostile CSS and a global keydown handler doesn't change a note's look or receive its keystrokes. Verifies **AC-15**.
 
 ## Build plan

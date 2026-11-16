@@ -16,7 +16,7 @@ The background worker adds two right click menu items, "Send selection to Sticky
 - **AC-18**: A note with a `dueTime` shows a bell toggle. With the bell on and Chrome running, a notification appears at `dateStr` + `dueTime` in the resolved timezone (within about 30 seconds) showing the note title, and it stays on screen until dismissed or clicked. Clicking it opens or focuses the board on that note's day. Completing, deleting, or turning off the bell stops it; changing the date or time reschedules it.
 - **AC-19**: Reminders that came due while Chrome was closed (due within the last 7 days, not completed, not deleted, bell on, not yet reminded) produce exactly one summary notification when Chrome next runs ("You missed 2 reminders", listing up to 3 titles; "1 reminder" when singular). Clicking it opens today's board. Each reminder is reported once, never both individually and in the summary.
 - **AC-20**: Clicking the toolbar icon, or pressing Alt+Shift+S, focuses an open board tab if one exists, otherwise opens a new one.
-- **AC-21**: Installing the production zip shows no warning other than "Display notifications", and its manifest has no host permissions.
+- **AC-21**: Installing the production zip shows exactly two install warnings, "Replace the page that you see when opening a new tab" and "Display notifications". Its manifest has no `host_permissions`.
 
 ## Decision
 
@@ -91,7 +91,7 @@ For a notification click the date is the note's `dateStr` (today if the note no 
 - Capture with no board open, then open a new tab: the note is on today with its source link, verifies **AC-16**.
 - Set a reminder 2 minutes ahead, wait: notification stays up; click it: board focused on that day, verifies **AC-18**.
 - Set a reminder, quit Chrome past the due time, restart: one summary and no separate notification; restart again: nothing, verifies **AC-19**.
-- Install the zip from `wxt zip`: only "Display notifications" is listed, verifies **AC-21**.
+- Install the zip from `wxt zip`: exactly those two warnings are listed, verifies **AC-21**. Where no install dialog can be shown (a headless browser), `chrome.management.getPermissionWarningsByManifest` on the zip's `manifest.json` returns the same two strings (a stand in for the dialog, not the dialog itself).
 
 ## Rationale (short)
 
