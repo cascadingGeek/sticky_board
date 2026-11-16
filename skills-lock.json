@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "skills": {
+    "chrome-extensions": {
+      "source": "GoogleChrome/modern-web-guidance",
+      "sourceType": "github",
+      "skillPath": "skills/chrome-extensions/SKILL.md",
+      "computedHash": "802ef1e0135ebd69e0eec533914754ba8ed0f080af86e55400de6e7fb22e6bae"
+    },
+    "tailwind-css": {
+      "source": "PaulRBerg/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/tailwind-css/SKILL.md",
+      "computedHash": "7a37d65613671a0c404ea0334355d8c67b29a2c992dda2da62716ff82fe16819"
+    },
+    "vitest": {
+      "source": "PaulRBerg/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/vitest/SKILL.md",
+      "computedHash": "71c87e7666f8770f050fe143e4a2c3de457d7722a86266ebcf8262691ab5f5bc"
+    },
+    "wxt-browser-extensions": {
+      "source": "pproenca/dot-skills",
+      "sourceType": "github",
+      "skillPath": "skills/.experimental/wxt-browser-extensions/SKILL.md",
+      "computedHash": "0f1bdca82075a03f8ca60bbe67a8f4eaa2ac7ecbae3bbd7b1693611217107b3f"
+    }
+  }
+}
