@@ -31,13 +31,14 @@ Stored in `docs/specs/NNNN-<feature>/` (`index.md`, `rationale.md`, `verify.md`)
 
 ## Rules
 
-- Code is grouped by surface: `src/background/`, `src/board/`, `src/pageNotes/`, `src/siteAccess/`. They import from `src/shared/` and never from each other. `src/entrypoints/` only mounts a surface.
-- Only `src/shared/storage/` calls `chrome.storage`. Change a note with `notes.patch`; create with `createNote` / `createPageNote`. Creates, moves and restores share the `note-create` lock.
+- Imports point one way: `entrypoints/` → `surfaces/` (board, page-notes, site-access) → `features/` (domain: types, rules, storage, background handlers) → `lib/` / `utils/`. `components/ui/` and `hooks/` are domain free. ESLint enforces it; see [`docs/architecture.md`](docs/architecture.md).
+- Import across folders with `@/`; relative `./x` only within one folder. Features build on `notes` and `settings` and must not form cycles.
+- Only `*.storage.ts` files in `src/features/` call `chrome.storage`. Change a note with `notes.patch`; create with `createNote` / `createPageNote`. Creates, moves and restores share the `note-create` lock.
 - Settings live in `chrome.storage.sync`, notes and meta in `chrome.storage.local` (one key per note, `note:<id>`).
-- Websites never write storage: the content script sends a message and `src/background/pageNotes.ts` checks and writes it. The page address comes from the sender, never the message.
+- Websites never write storage: the content script sends a message and `src/features/page-notes/page-notes.background.ts` checks and writes it. The page address comes from the sender, never the message.
 - Days are `YYYY-MM-DD` in the resolved timezone: `todayInTz(resolveTz(settings.timezone))`, never `toISOString()`.
 - Style with theme tokens (`bg-panel`, `text-ink`, `border-line`, `bg-accent`), never raw colors.
-- Tests live in `tests/`, mirroring `src/`, and import source through `@/` (for example `@/shared/dates`).
+- Tests live in `tests/`, mirroring `src/`, and import source through `@/` (for example `@/utils/dates`).
 - Comments are short (1 to 3 lines) and explain why, not what. No spec or AC numbers in code or tests.
 - No network requests, remote code or `eval` anywhere.
 
@@ -57,8 +58,8 @@ Stored in `docs/specs/NNNN-<feature>/` (`index.md`, `rationale.md`, `verify.md`)
 
 ## Context files
 
-- [src/shared/storage/AGENTS.md](src/shared/storage/AGENTS.md): locks, save queues, limits and migrations for all storage
-- [src/pageNotes/AGENTS.md](src/pageNotes/AGENTS.md): the sealed UI drawn on websites (shadow root, plain CSS, message only writes)
+- [src/features/notes/AGENTS.md](src/features/notes/AGENTS.md): the Note entity, its storage locks, save queues and limits
+- [src/surfaces/page-notes/AGENTS.md](src/surfaces/page-notes/AGENTS.md): the sealed UI drawn on websites (shadow root, plain CSS, message only writes)
 - [tests/AGENTS.md](tests/AGENTS.md): the fake Chrome, test helpers and mocking gotchas
 
 _Drafted by /audit from the repo, worth a quick human pass. Edit freely: once a line stops matching this draft, later runs treat it as curated and will flag rather than overwrite it._

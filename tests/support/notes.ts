@@ -1,4 +1,4 @@
-import type { Note } from '@/shared/types';
+import type { Note } from '@/features/notes/notes.types';
 
 let seq = 0;
 
