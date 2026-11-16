@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach } from 'vitest';
 import { installFakeChrome } from './support/fakeChrome';
-import { resetTimeFormat } from '@/shared/dates';
+import { resetTimeFormat } from '@/utils/dates';
 
 // Pin the locale to en-US so time text ("3:00 PM") is the same on every machine.
 const NativeDateTimeFormat = Intl.DateTimeFormat;

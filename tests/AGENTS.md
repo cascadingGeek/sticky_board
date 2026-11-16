@@ -17,15 +17,15 @@ Every test for the project, in the same folder path as the code it covers under 
 
 ```bash
 npm test                              # the whole suite
-npx vitest run tests/shared/dates     # one folder or file
+npx vitest run tests/utils/dates        # one folder or file
 ```
 
 ## Conventions
 
-- Import source through `@/` (for example `@/shared/storage`) and helpers through relative paths to `support/`.
+- Import source through `@/` (for example `@/features/notes/notes.storage`) and helpers through relative paths to `support/`.
 - Seed data with `seedNotes` and assert on `storedNotes()`, rather than mocking storage functions.
 - Name tests by behavior. No spec or AC numbers in names or comments.
-- The board's sounds use Web Audio, which jsdom lacks; mock `@/board/sounds` in component tests that trigger them.
+- The board's sounds use Web Audio, which jsdom lacks; mock `@/lib/sounds` in component tests that trigger them.
 
 ## Gotchas
 
