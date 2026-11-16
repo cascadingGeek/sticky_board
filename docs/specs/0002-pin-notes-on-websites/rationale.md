@@ -4,7 +4,7 @@
 
 Sticky Board lives on the new tab page and keeps notes per day. People also want notes that sit on the web page they belong to: a thought next to a paragraph, a reminder on a product page. The reference extension, Simple Sticky Notes, shows the demand: per page notes that come back on revisit, made by right click or a shortcut, with a dashboard by site.
 
-Showing anything on other people's websites needs Chrome's host access, and that is the most sensitive permission an extension can hold. Asked for at install, it shows "Read and change all your data on all websites" to everyone, including people who never pin a note. Spec 0001 chose least privilege on purpose (AC-21 allows only the "Display notifications" warning), and that trust is part of the product.
+Showing anything on other people's websites needs Chrome's host access, and that is the most sensitive permission an extension can hold. Asked for at install, it shows "Read and change all your data on all websites" to everyone, including people who never pin a note. Spec 0001 chose least privilege on purpose (AC-21 allows only the new tab override warning and "Display notifications"), and that trust is part of the product.
 
 The on page UI also runs inside pages Sticky Board doesn't control. Site CSS can restyle it, site scripts can read it, and single page apps change the address without reloading. The data has to fit the existing storage layer, so search, Trash, backup and the save queue keep working without a second code path.
 
@@ -29,7 +29,7 @@ Declare `host_permissions` for all sites and a manifest content script on every 
 Keep install clean. After the first pin on a site, offer an Allow button that asks Chrome for that one host. Register the content script at run time for allowed origins only. Use `activeTab` to inject on demand when you pin or ask to see notes on a site you haven't allowed.
 
 **Pros**:
-- Install warning unchanged; access is narrow, visible and removable.
+- Install warnings unchanged; access is narrow, visible and removable.
 - Code runs only on sites where you have notes.
 - Works even if you decline: notes still save and show on demand.
 

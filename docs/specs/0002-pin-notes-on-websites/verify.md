@@ -4,7 +4,7 @@ _Steps derived from spec 0002 acceptance criteria. `/check verify` runs these; `
 Setup: run `npm run build && npx wxt zip`, unzip `.output/sticky-board-0.1.0-chrome.zip`, and load it unpacked in a fresh Chrome profile (check AC-1 on the production build only; the dev build adds permissions).
 
 ## UI / manual
-- [ ] Load the production zip in a fresh profile → the install dialog lists only "Display notifications"; `chrome://extensions` details show no site access → AC-1
+- [ ] Load the production zip in a fresh profile → the install dialog lists only "Replace the page that you see when opening a new tab" and "Display notifications"; `chrome://extensions` details show no site access → AC-1
 - [ ] On `https://example.com/a?x=1` (never allowed), right click empty page space → "Pin a note here" → a blank note appears 24 px in from the visible top left with the title focused → AC-2, AC-3
 - [ ] Type a title and press Enter → note saved; it shows "Show this note when you come back?" with Allow → AC-2, AC-4
 - [x] Pin another, leave the title empty and click away → it disappears and nothing is saved (Pages drawer unchanged) → AC-2
@@ -18,7 +18,7 @@ Setup: run `npm run build && npx wxt zip`, unzip `.output/sticky-board-0.1.0-chr
 - [x] Collapse a note → a small tab in its color shows the first 20 characters of its title; click it → it opens; reload → collapsed state kept → AC-9
 - [x] Delete a page note → it moves to Trash showing "On <site>"; Restore → back on its page at the same spot → AC-10
 - [x] Fill a page to 50 notes, trash one, pin a new one (back to 50), then Restore the trashed one → refused with "This page already has 50 notes." → AC-10, AC-18
-- [ ] Open the board's Pages drawer → notes grouped by site, newest first, each with title and page title; click one → page opens in a new tab; Move to Trash works; no page note shows on the day board, calendar dots, carry over prompt or reminders → AC-11
+- [x] Open the board's Pages drawer → notes grouped by site, newest first, each with title and page title; click one → page opens in a new tab; Move to Trash works; no page note shows on the day board, calendar dots, carry over prompt or reminders → AC-11
 - [x] Board search for a word in a page note's checklist → result labelled with its site; click → page opens in a new tab → AC-12
 - [x] Download a backup, delete the extension, reinstall, import → page notes return at their page spot with size and collapsed state (not moved on the board) → AC-13
 - [x] On YouTube (allowed), pin a note on one video, then click another video (no reload) → within 1 second the first note goes and the second video's notes show; change only the `#part` → nothing redraws → AC-14
@@ -40,7 +40,7 @@ Setup: run `npm run build && npx wxt zip`, unzip `.output/sticky-board-0.1.0-chr
 ## Commands
 - [x] `npm test` → all tests pass (263 at build time) → AC-2 to AC-20 logic
 - [x] `npm run lint` → no errors → all
-- [x] `npm run build` then check `.output/chrome-mv3/manifest.json` → no `host_permissions`, no `content_scripts`, `optional_host_permissions` is `http://*/*` and `https://*/*`, commands include `pin-note` → AC-1, AC-19
+- [x] `npm run build` then check `.output/chrome-mv3/manifest.json` → no `host_permissions`, no `content_scripts`, `optional_host_permissions` is `*://*/*`, commands include `pin-note` → AC-1, AC-19
 
 ## Acceptance-criteria coverage
 - AC-1 setup + first step, manifest command · AC-2 pin steps · AC-3 first pin, shortcut spot · AC-4 Allow and restart · AC-5 decline · AC-6 address step · AC-7 drag and resize · AC-8 edit and two tabs · AC-9 collapse · AC-10 Trash and Restore · AC-11 Pages drawer · AC-12 search · AC-13 backup · AC-14 YouTube · AC-15 hostile CSS page · AC-16 Settings · AC-17 restricted pages · AC-18 50 limit · AC-19 shortcuts page · AC-20 extension reload

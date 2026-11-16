@@ -19,7 +19,7 @@ Setup: `npm run build`, then load `.output/chrome-mv3` with **Load unpacked** in
 - [x] Open a new tab: today's board in Dark, no login; DevTools Network shows only `chrome-extension://` requests → AC-7
 - [x] Fresh profile: the welcome screen shows, Dark preselected; clicking themes previews live; "Start my board" or "Skip" lands on the empty board hint; reopening never shows it again → AC-8
 - [x] Settings: pick each of Dark, Light, Midnight, Cork, System; with System, flip the OS appearance: the board follows without reload; reopening a tab shows no flash of another theme → AC-9
-- [ ] Every note is 220 × 220; drag one from its body to a new spot and reload: it stays; it can't be dragged above the top or past the right edge; dragging from its scrollbar, a link, or a checkbox does not move it; Esc during a drag puts it back → AC-10
+- [x] Every note is 220 × 220; drag one from its body to a new spot and reload: it stays; it can't be dragged above the top or past the right edge; dragging from its scrollbar, a link, or a checkbox does not move it; Esc during a drag puts it back → AC-10
 - [x] Narrow the window below a note's x: the note is drawn inside the view; widen again: it returns to its stored spot → AC-10
 - [x] Tab to a note, press Alt+→ three times, release, reload: it moved 72 px; tick a checklist item on a note underneath another: it stays underneath → AC-10
 - [x] A note with 20 checklist items scrolls inside and stays 220 × 220; scrolling doesn't move it → AC-11
@@ -36,9 +36,9 @@ Setup: `npm run build`, then load `.output/chrome-mv3` with **Load unpacked** in
 - [x] Select text on any web page, right click > "Send selection to Sticky Board" with no board tab open, then open a new tab: the note is on today, title is the first line (max 80), source links back to the page → AC-16
 - [x] Right click a link > "Save link to Sticky Board": title is the link's host and path (or "Saved link" for a non http link), details hold the URL → AC-17
 - [x] Give a note a due time 2 minutes ahead with Remind on: a notification appears and stays until clicked; clicking opens or focuses the board on that day; completing, trashing or turning Remind off before the time stops it; changing the time reschedules → AC-18
-- [ ] Set a reminder, quit Chrome past its time, restart: one "You missed 1 reminder" notification (no separate one); restart again: nothing → AC-19
+- [x] Set a reminder, quit Chrome past its time, restart: one "You missed 1 reminder" notification (no separate one); restart again: nothing → AC-19
 - [x] Click the toolbar icon, and press Alt+Shift+S: an open board tab is focused, or a new one opens → AC-20
-- [ ] Install `.output/sticky-board-0.1.0-chrome.zip` (unzipped, production build): the only install warning is "Display notifications"; the manifest has no host permissions → AC-21
+- [x] Install `.output/sticky-board-0.1.0-chrome.zip` (unzipped, production build): the install warnings are exactly "Replace the page that you see when opening a new tab" and "Display notifications" (in a headless browser, `chrome.management.getPermissionWarningsByManifest` on the zip's `manifest.json` returns the same two strings (a stand in for the dialog, not the dialog itself)); the manifest has no `host_permissions` → AC-21
 
 ### Value sourcing (one step per source, varying the input)
 - [x] Today: set Settings > Time zone to a zone where it is already tomorrow: the board and "Today" switch to that zone's day; back to Automatic: this computer's day → Board load / today
@@ -49,13 +49,13 @@ Setup: `npm run build`, then load `.output/chrome-mv3` with **Load unpacked** in
 - [x] Day: browse to tomorrow, press N: the note belongs to tomorrow → New note / day
 - [x] Tilt: reload twice: each note keeps the same tilt → Note card / tilt
 - [x] Trash count: trash 100+ notes: the badge reads "99+" → Trash icon / count
-- [ ] Reminder time across daylight saving: a 02:30 reminder on a spring forward day fires at 03:00 → Reminder / due time
+- [x] Reminder time across daylight saving: a 02:30 reminder on a spring forward day fires at 03:00 → Reminder / due time
 - [x] Capture source title: capture from the PDF viewer (no tab title): the source label falls back to the host → Capture / source title
 - [x] Export file name: uses today in the chosen time zone → Export / file date
 
 ## Commands
 - [x] `npm run lint` → ESLint and typecheck pass → all
-- [x] `npm run build` → `.output/chrome-mv3/manifest.json` has exactly `storage, unlimitedStorage, contextMenus, activeTab, alarms, notifications`, `chrome_url_overrides.newtab`, `action`, `_execute_action` Alt+Shift+S → AC-21
+- [x] `npm run build` → `.output/chrome-mv3/manifest.json` has exactly `storage, unlimitedStorage, contextMenus, activeTab, alarms, notifications`, plus `scripting` from spec 0002, `chrome_url_overrides.newtab`, `action`, `_execute_action` Alt+Shift+S → AC-21
 - [x] `npm run zip` → `.output/sticky-board-0.1.0-chrome.zip` exists → AC-21
 
 ## Acceptance-criteria coverage

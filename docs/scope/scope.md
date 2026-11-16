@@ -17,7 +17,7 @@
 
 Turn the web app into a local first Chrome extension: today's freeform board on every new tab, themes (dark by default), search, trash, backups, right click capture and due time reminders. No login, no server, no tracking.
 
-Done when: the production zip installs with only the "Display notifications" warning and AC-1 to AC-21 in spec 0001 pass.
+Done when: the production zip installs with only the two install warnings (the new tab override and "Display notifications") and AC-1 to AC-21 in spec 0001 pass.
 
 Spec: [0001](../specs/0001-chrome-extension-mvp/index.md) · code in `src/` (WXT extension: `src/entrypoints/`, domain in `src/features/`, board in `src/surfaces/board/`)
 
@@ -34,7 +34,7 @@ Spec: [0001](../specs/0001-chrome-extension-mvp/index.md) · code in `src/` (WXT
 
 Pin sticky notes on any web page, so a thought stays next to the page it belongs to. Notes come back when you revisit the page, and they live in the same storage as board notes, so search, Trash and backups cover them.
 
-Done when: you can pin a note on a page by right click or a shortcut, move, resize, edit and delete it, see it again on revisit and after a browser restart, and the install warning stays "Display notifications" (website access is asked for one site at a time, only after you pin a note there).
+Done when: you can pin a note on a page by right click or a shortcut, move, resize, edit and delete it, see it again on revisit and after a browser restart, and the install warnings stay the same two (the new tab override and "Display notifications") (website access is asked for one site at a time, only after you pin a note there).
 
 Spec: [0002](../specs/0002-pin-notes-on-websites/index.md) · code in `src/surfaces/page-notes/` (on page UI), `src/entrypoints/page-notes.content/`, `src/surfaces/site-access/`, `src/features/notes/page-notes.rules.ts`, `src/features/page-notes/`
 

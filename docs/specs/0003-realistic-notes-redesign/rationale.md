@@ -8,7 +8,7 @@ Sticky Board is a WXT Chrome extension (React 19, Tailwind 4, `chrome.storage`),
 
 A new canvas, "Realistic Sticky Board", redraws every one of those screens. Notes become realistic paper with a modelled pushpin, a glue band, contact and curl shadows and grain, on flat pastel colours with one ink colour. The default surface becomes a light wall, and a full dark set shows Dark, Midnight and Cork. The canvas is a visual source, so it carries some contradictions: the onboarding copy still calls Dark the default while every light board shows Light, done notes are drawn two ways, and due times appear in both 12 and 24 hour form.
 
-The forces: the look touches almost every component, so the change must not alter behaviour or stored data. Existing users must not be surprised. The extension promises that nothing leaves the browser, so fonts stay bundled. Website notes live in a closed shadow root on someone else's page, where fonts declared inside the shadow root do not load and the page's CSP can block fetched resources. The install warning must stay "Display notifications" only.
+The forces: the look touches almost every component, so the change must not alter behaviour or stored data. Existing users must not be surprised. The extension promises that nothing leaves the browser, so fonts stay bundled. Website notes live in a closed shadow root on someone else's page, where fonts declared inside the shadow root do not load and the page's CSP can block fetched resources. The install warnings must stay the two from spec 0001 (the new tab override and "Display notifications").
 
 Not deciding leaves `/develop` to resolve each canvas contradiction on its own, and leaves the board and website notes free to drift apart.
 
